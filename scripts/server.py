@@ -24,7 +24,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # Task 1: SQLite
 # ---------------------------------------------------------------------------
 
-DB_DIR = os.path.join(os.path.expanduser("~"), ".phaser-asset-finder")
+DB_DIR = os.path.join(os.path.expanduser("~"), ".phaser-assets")
 DB_PATH = os.path.join(DB_DIR, "assets.db")
 
 
@@ -244,7 +244,7 @@ class AssetHandler(BaseHTTPRequestHandler):
     def handle_index(self):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         template_path = os.path.join(
-            script_dir, "..", "skills", "phaser-asset-finder", "assets", "asset-preview.html"
+            script_dir, "..", "skills", "asset-finder", "assets", "asset-preview.html"
         )
         try:
             with open(template_path, "r", encoding="utf-8") as f:

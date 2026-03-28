@@ -1,12 +1,12 @@
 {
-  "name": "phaser-asset-finder",
-  "description": "Local marketplace for phaser-asset-finder plugin",
+  "name": "phaser-assets",
+  "description": "Local marketplace for phaser-assets plugin",
   "owner": {
     "name": "ehart"
   },
   "plugins": [
     {
-      "name": "phaser-asset-finder",
+      "name": "phaser-assets",
       "description": "Find and integrate free 2D game assets into Phaser JS projects. Searches trusted free sources (Kenney, OpenGameArt, itch.io), presents a visual preview UI for selection, downloads assets into your project, and generates ready-to-use Phaser loading code.",
       "version": "0.1.0",
       "source": "./",

@@ -1,5 +1,5 @@
 ---
-name: phaser-asset-finder
+name: asset-finder
 description: Find and integrate free 2D game assets (sprites, tilesets, UI, audio) into Phaser JS projects. Triggers when the user needs game art, sprites, tilesets, backgrounds, UI elements, sound effects, or music for a Phaser game, or mentions OpenGameArt, Kenney, or itch.io assets.
 ---
 

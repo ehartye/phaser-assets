@@ -1,4 +1,4 @@
-# phaser-asset-finder
+# phaser-assets
 
 A Claude Code plugin that finds free 2D game assets and integrates them into Phaser JS projects. Searches trusted free sources (Kenney, OpenGameArt, itch.io), presents a visual preview UI for selection, downloads assets into your project, and generates ready-to-use Phaser loading code.
 
@@ -21,7 +21,7 @@ Add this to your Claude Code settings (`~/.claude/settings.json`):
   "plugins": {
     "marketplaces": [
       {
-        "url": "file:///C:/Users/ehart/anika-projects/phaser-asset-finder/marketplace.json"
+        "url": "file:///C:/Users/ehart/anika-projects/phaser-assets/marketplace.json"
       }
     ]
   }
@@ -31,7 +31,7 @@ Add this to your Claude Code settings (`~/.claude/settings.json`):
 Or run Claude Code with the plugin directory directly:
 
 ```bash
-claude --plugin-dir /path/to/phaser-asset-finder
+claude --plugin-dir /path/to/phaser-assets
 ```
 
 ## Usage

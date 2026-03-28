@@ -82,6 +82,7 @@ class Session:
         self.asset_structure = None
         self.status = "idle"          # idle | downloading | done
         self.results = {"downloaded": [], "failed": []}
+        self.lock = threading.Lock()
 
     def reset(self):
         self.__init__()
@@ -254,9 +255,9 @@ class AssetHandler(BaseHTTPRequestHandler):
 
         assets_json = json.dumps(session.assets) if session.assets else "[]"
         html = html.replace("__ASSET_DATA_PLACEHOLDER__", assets_json)
-        html = html.replace("__SEARCH_CONTEXT_PLACEHOLDER__", session.search_context or "")
-        html = html.replace("__PROJECT_PATH_PLACEHOLDER__", session.project_path or "")
-        html = html.replace("__SESSION_ID_PLACEHOLDER__", session.session_id or "")
+        html = html.replace('"__SEARCH_CONTEXT_PLACEHOLDER__"', json.dumps(session.search_context or ""))
+        html = html.replace('"__PROJECT_PATH_PLACEHOLDER__"', json.dumps(session.project_path or ""))
+        html = html.replace('"__SESSION_ID_PLACEHOLDER__"', json.dumps(session.session_id or ""))
 
         self.send_html(html)
 
@@ -266,14 +267,15 @@ class AssetHandler(BaseHTTPRequestHandler):
 
     def handle_download(self):
         body = self.read_body()
-        selected_ids = body.get("selected", [])
+        selected_ids = set(body.get("selected", []))
 
         if not selected_ids:
             self.send_json({"error": "no assets selected"}, 400)
             return
 
-        session.status = "downloading"
-        session.results = {"downloaded": [], "failed": []}
+        with session.lock:
+            session.status = "downloading"
+            session.results = {"downloaded": [], "failed": []}
 
         # Respond immediately
         self.send_json({"status": "downloading", "count": len(selected_ids)})
@@ -291,18 +293,22 @@ class AssetHandler(BaseHTTPRequestHandler):
     # ------------------------------------------------------------------
 
     def handle_status(self):
-        self.send_json({
-            "status": session.status,
-            "downloaded": len(session.results.get("downloaded", [])),
-            "failed": len(session.results.get("failed", [])),
-        })
+        with session.lock:
+            data = {
+                "status": session.status,
+                "downloaded": len(session.results.get("downloaded", [])),
+                "failed": len(session.results.get("failed", [])),
+            }
+        self.send_json(data)
 
     # ------------------------------------------------------------------
     # Task 7c: GET /api/results
     # ------------------------------------------------------------------
 
     def handle_results(self):
-        self.send_json(session.results)
+        with session.lock:
+            data = dict(session.results)
+        self.send_json(data)
 
     # ------------------------------------------------------------------
     # POST /shutdown
@@ -320,20 +326,37 @@ class AssetHandler(BaseHTTPRequestHandler):
 
 # Map asset type -> subdirectory under the project
 TYPE_DIR_MAP = {
-    "sprites":    ("images", "characters"),
-    "characters": ("images", "characters"),
-    "tiles":      ("images", "tiles"),
-    "tilesets":   ("images", "tiles"),
-    "tilemap":    ("tilemaps", ""),
-    "tilemaps":   ("tilemaps", ""),
-    "backgrounds":("images", "backgrounds"),
-    "audio":      ("audio", "sfx"),
-    "sfx":        ("audio", "sfx"),
-    "music":      ("audio", "music"),
-    "ui":         ("images", "ui"),
-    "icons":      ("images", "ui"),
-    "fonts":      ("images", "fonts"),
+    "sprite":      ("images", "characters"),
+    "sprites":     ("images", "characters"),
+    "character":   ("images", "characters"),
+    "characters":  ("images", "characters"),
+    "tile":        ("images", "tiles"),
+    "tiles":       ("images", "tiles"),
+    "tileset":     ("images", "tiles"),
+    "tilesets":    ("images", "tiles"),
+    "tilemap":     ("tilemaps", ""),
+    "tilemaps":    ("tilemaps", ""),
+    "background":  ("images", "backgrounds"),
+    "backgrounds": ("images", "backgrounds"),
+    "audio":       ("audio", "sfx"),
+    "sfx":         ("audio", "sfx"),
+    "music":       ("audio", "music"),
+    "ui":          ("images", "ui"),
+    "icon":        ("images", "ui"),
+    "icons":       ("images", "ui"),
+    "font":        ("images", "fonts"),
+    "fonts":       ("images", "fonts"),
 }
+
+
+def _safe_extractall(zf, dest_dir):
+    """Extract zip contents after verifying no member escapes dest_dir (Zip Slip)."""
+    dest = os.path.realpath(str(dest_dir))
+    for member in zf.infolist():
+        target = os.path.realpath(os.path.join(dest, member.filename))
+        if not target.startswith(dest + os.sep) and target != dest:
+            raise ValueError(f"Zip member {member.filename!r} escapes target directory")
+    zf.extractall(dest_dir)
 
 
 def _dest_dir_for_asset(asset):
@@ -392,7 +415,7 @@ def _download_one(asset):
                 buf = io.BytesIO(data)
                 try:
                     with zipfile.ZipFile(buf) as zf:
-                        zf.extractall(dest_dir)
+                        _safe_extractall(zf, dest_dir)
                     return True, dest_dir, None
                 except zipfile.BadZipFile:
                     # Not actually a zip — save as-is
@@ -421,25 +444,35 @@ def _download_assets(selected_ids):
         source_url = asset.get("sourceUrl", "")
         license_info = asset.get("license", "")
 
+        # Return paths relative to project_path
+        rel_path = local_path
+        if success and local_path and session.project_path:
+            try:
+                rel_path = os.path.relpath(local_path, session.project_path)
+            except ValueError:
+                rel_path = local_path
+
         if success:
-            session.results["downloaded"].append({
-                "id": aid,
-                "name": name,
-                "path": local_path,
-                "license": license_info,
-            })
+            with session.lock:
+                session.results["downloaded"].append({
+                    "id": aid,
+                    "name": name,
+                    "path": rel_path,
+                    "license": license_info,
+                })
             conn.execute(
                 "UPDATE assets SET status='downloaded', local_path=? WHERE session_id=? AND asset_id=?",
                 (local_path, session.session_id, aid),
             )
         else:
-            session.results["failed"].append({
-                "id": aid,
-                "name": name,
-                "source_url": source_url,
-                "license": license_info,
-                "error": error,
-            })
+            with session.lock:
+                session.results["failed"].append({
+                    "id": aid,
+                    "name": name,
+                    "source_url": source_url,
+                    "license": license_info,
+                    "error": error,
+                })
             conn.execute(
                 "UPDATE assets SET status='failed', error=? WHERE session_id=? AND asset_id=?",
                 (error, session.session_id, aid),
@@ -447,7 +480,8 @@ def _download_assets(selected_ids):
         conn.commit()
 
     conn.close()
-    session.status = "done"
+    with session.lock:
+        session.status = "done"
 
 
 # ---------------------------------------------------------------------------

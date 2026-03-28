@@ -83,6 +83,12 @@ class Session:
         self.status = "idle"          # idle | downloading | done
         self.results = {"downloaded": [], "failed": []}
         self.lock = threading.Lock()
+        self.inspector = {
+            "image_path": None,       # relative path to sprite sheet
+            "tile_config": {},        # tile_width, tile_height, margin, spacing
+            "status": "idle",         # idle, active, submitted
+            "results": None,
+        }
 
     def reset(self):
         self.__init__()

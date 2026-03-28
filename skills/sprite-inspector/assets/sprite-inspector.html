@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprite Sheet Inspector</title>
+<style>
+  :root {
+    --bg: #0f1118;
+    --surface: #1a1d2e;
+    --surface-hover: #242840;
+    --border: #2d3154;
+    --border-selected: #6c5ce7;
+    --accent: #6c5ce7;
+    --accent-glow: rgba(108, 92, 231, 0.3);
+    --text: #e8e6f0;
+    --text-dim: #8b89a0;
+    --tag-bg: #2d3154;
+    --success: #00b894;
+    --danger: #e17055;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* --- Grid Panel (left) --- */
+  #grid-panel {
+    flex: 1;
+    overflow: auto;
+    padding: 16px;
+  }
+
+  #grid-panel h2 {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+
+  #tile-grid {
+    line-height: 0;
+  }
+
+  .tile-row {
+    white-space: nowrap;
+    margin-bottom: 2px;
+  }
+
+  .tile-wrapper {
+    display: inline-block;
+    text-align: center;
+    margin: 1px;
+    cursor: pointer;
+  }
+
+  .tile-index {
+    font-size: 9px;
+    font-family: monospace;
+    color: var(--text-dim);
+    line-height: 12px;
+    height: 12px;
+  }
+
+  .tile-canvas {
+    image-rendering: pixelated;
+    border: 1px solid transparent;
+    display: block;
+  }
+
+  .tile-canvas:hover {
+    border-color: var(--accent);
+  }
+
+  .tile-canvas.selected {
+    border-color: #fff;
+    outline: 1px solid var(--accent);
+  }
+
+  .tile-canvas.in-sequence {
+    border-color: var(--success);
+  }
+
+  /* --- Sidebar (right) --- */
+  #sidebar {
+    width: 360px;
+    min-width: 360px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #sidebar-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #sidebar-header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  #sidebar-header .subtitle {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* Inspect preview */
+  #inspect-section {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  #inspect-preview {
+    width: 96px;
+    height: 96px;
+    image-rendering: pixelated;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  #inspect-info {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+
+  #inspect-info span {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* Mode tabs */
+  .mode-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mode-tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .mode-tab:hover {
+    color: var(--text);
+    background: var(--surface-hover);
+  }
+
+  .mode-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* Mode content area */
+  #mode-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+  }
+
+  .mode-panel {
+    display: none;
+  }
+
+  .mode-panel.active {
+    display: block;
+  }
+
+  /* Form elements */
+  .field {
+    margin-bottom: 12px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .field input[type="text"],
+  .field input[type="number"] {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+  }
+
+  .field input:focus {
+    border-color: var(--accent);
+  }
+
+  .field-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .field-row .field {
+    flex: 1;
+  }
+
+  .checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .checkbox-field input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 16px;
+    height: 16px;
+  }
+
+  .checkbox-field label {
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .hint {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+
+  /* Frame list (animation mode) */
+  .frame-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 12px;
+    min-height: 32px;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  .frame-item {
+    position: relative;
+    display: inline-block;
+  }
+
+  .frame-item canvas {
+    image-rendering: pixelated;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: block;
+  }
+
+  .frame-item .frame-remove {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--danger);
+    color: white;
+    font-size: 9px;
+    line-height: 14px;
+    text-align: center;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+
+  .frame-item .frame-order {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    background: rgba(0,0,0,0.7);
+    color: var(--text);
+    font-size: 8px;
+    padding: 0 3px;
+    border-radius: 0 3px 0 3px;
+  }
+
+  /* Move buttons */
+  .frame-item .frame-move {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 20px;
+    background: rgba(0,0,0,0.6);
+    color: var(--text);
+    font-size: 8px;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+
+  .frame-item .frame-move-left {
+    left: 0;
+    border-radius: 3px 0 0 3px;
+  }
+
+  .frame-item .frame-move-right {
+    right: 0;
+    border-radius: 0 3px 3px 0;
+  }
+
+  /* Animation preview */
+  #anim-preview-section {
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  #anim-preview-canvas {
+    image-rendering: pixelated;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  /* Layer list */
+  .layer-list {
+    margin-bottom: 12px;
+  }
+
+  .layer-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 4px;
+    font-size: 12px;
+  }
+
+  .layer-item canvas {
+    image-rendering: pixelated;
+    border-radius: 2px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .layer-item button {
+    background: var(--danger);
+    border: none;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+
+  /* Compose preview */
+  #compose-preview-section {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  #compose-preview-canvas {
+    image-rendering: pixelated;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  /* Saved items list */
+  .saved-list {
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+
+  .saved-list h3 {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .saved-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+
+  .saved-item-info {
+    font-size: 13px;
+  }
+
+  .saved-item-info .name {
+    font-weight: 600;
+  }
+
+  .saved-item-info .detail {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .saved-item button {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+
+  .saved-item button:hover {
+    background: var(--danger);
+    color: white;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+    margin-bottom: 6px;
+  }
+
+  .btn-accent {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-accent:hover { filter: brightness(1.15); }
+  .btn-accent:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-success {
+    background: var(--success);
+    color: white;
+  }
+  .btn-success:hover { filter: brightness(1.15); }
+  .btn-success:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-outline:hover { background: var(--surface-hover); }
+
+  /* Send to Claude section */
+  #send-section {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  /* Status banner */
+  .status-banner {
+    padding: 12px 20px;
+    background: rgba(0, 184, 148, 0.1);
+    border-top: 1px solid rgba(0, 184, 148, 0.3);
+    color: var(--success);
+    font-size: 13px;
+    text-align: center;
+    display: none;
+  }
+
+  .status-banner.visible {
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+<!-- Left: Tile Grid -->
+<div id="grid-panel">
+  <h2 id="grid-header">Loading sprite sheet...</h2>
+  <div id="tile-grid"></div>
+</div>
+
+<!-- Right: Sidebar -->
+<div id="sidebar">
+  <div id="sidebar-header">
+    <h1>Sprite Inspector</h1>
+    <div class="subtitle" id="sheet-info"></div>
+  </div>
+
+  <!-- Inspect preview -->
+  <div id="inspect-section">
+    <canvas id="inspect-preview" width="96" height="96"></canvas>
+    <div id="inspect-info">Click a tile to inspect</div>
+  </div>
+
+  <!-- Mode tabs -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" data-mode="animation" onclick="switchMode('animation')">Animation</button>
+    <button class="mode-tab" data-mode="layer" onclick="switchMode('layer')">Layer</button>
+  </div>
+
+  <!-- Mode content -->
+  <div id="mode-content">
+    <!-- Animation Mode -->
+    <div id="animation-panel" class="mode-panel active">
+      <div class="field">
+        <label>Animation Name</label>
+        <input type="text" id="anim-name" placeholder="e.g. idle, walk, attack">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Frame Rate</label>
+          <input type="number" id="anim-fps" value="8" min="1" max="60">
+        </div>
+        <div class="field">
+          <div class="checkbox-field" style="margin-top: 18px;">
+            <input type="checkbox" id="anim-loop" checked>
+            <label for="anim-loop">Loop</label>
+          </div>
+        </div>
+      </div>
+      <p class="hint">Click tiles to add frames</p>
+      <div class="frame-list" id="anim-frames"></div>
+
+      <div id="anim-preview-section">
+        <canvas id="anim-preview-canvas" width="96" height="96"></canvas>
+      </div>
+
+      <button class="btn btn-accent" id="save-anim-btn" onclick="saveAnimation()" disabled>Save Animation</button>
+      <button class="btn btn-outline" onclick="clearAnimFrames()">Clear Frames</button>
+
+      <div class="saved-list" id="saved-anims">
+        <h3>Saved Animations</h3>
+      </div>
+    </div>
+
+    <!-- Layer Mode -->
+    <div id="layer-panel" class="mode-panel">
+      <div class="field">
+        <label>Composition Name</label>
+        <input type="text" id="comp-name" placeholder="e.g. player, enemy_mage">
+      </div>
+      <p class="hint">Click tiles to add as layers (stacked on top of each other)</p>
+
+      <div id="compose-preview-section">
+        <canvas id="compose-preview-canvas" width="96" height="96"></canvas>
+      </div>
+
+      <div class="layer-list" id="comp-layers"></div>
+
+      <button class="btn btn-accent" id="save-comp-btn" onclick="saveComposition()" disabled>Save Composition</button>
+      <button class="btn btn-outline" onclick="clearCompLayers()">Clear Layers</button>
+
+      <div class="saved-list" id="saved-comps">
+        <h3>Saved Compositions</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send to Claude -->
+  <div id="send-section">
+    <button class="btn btn-success" id="send-btn" onclick="sendToClaude()">Send to Claude</button>
+  </div>
+
+  <div class="status-banner" id="status-banner">
+    Data sent to Claude. You can close this tab.
+  </div>
+</div>
+
+<script>
+const TILE_CONFIG = __TILE_CONFIG_PLACEHOLDER__;
+const IMAGE_PATH = "__IMAGE_PATH_PLACEHOLDER__";
+
+const tileWidth = TILE_CONFIG.tile_width || 32;
+const tileHeight = TILE_CONFIG.tile_height || 32;
+const margin = TILE_CONFIG.margin || 0;
+const spacing = TILE_CONFIG.spacing || 0;
+
+let img, cols, rows;
+let currentMode = 'animation';
+
+// Animation state
+let animFrames = [];     // array of tile indices
+let savedAnimations = {}; // { name: { frames, frameRate, loop } }
+let animPreviewInterval = null;
+
+// Layer state
+let compLayers = [];     // array of tile indices
+let savedCompositions = {}; // { name: { layers: [...] } }
+
+const scale = 3;
+
+// Canvas contexts
+const inspectCtx = document.getElementById('inspect-preview').getContext('2d');
+const animPreviewCtx = document.getElementById('anim-preview-canvas').getContext('2d');
+const composePreviewCtx = document.getElementById('compose-preview-canvas').getContext('2d');
+
+inspectCtx.imageSmoothingEnabled = false;
+animPreviewCtx.imageSmoothingEnabled = false;
+composePreviewCtx.imageSmoothingEnabled = false;
+
+// Load the sprite sheet image
+img = new Image();
+img.crossOrigin = 'anonymous';
+img.onload = function() {
+  cols = Math.floor((img.width - margin) / (tileWidth + spacing));
+  rows = Math.floor((img.height - margin) / (tileHeight + spacing));
+  document.getElementById('grid-header').textContent =
+    cols * rows + ' tiles (' + cols + ' x ' + rows + ') — ' + tileWidth + 'x' + tileHeight + 'px each';
+  document.getElementById('sheet-info').textContent =
+    IMAGE_PATH + ' — ' + img.width + 'x' + img.height + 'px';
+  buildGrid();
+};
+img.onerror = function() {
+  document.getElementById('grid-header').textContent = 'Failed to load sprite sheet image';
+};
+img.src = '/inspector/image';
+
+function getTileSourceXY(col, row) {
+  const sx = margin + col * (tileWidth + spacing);
+  const sy = margin + row * (tileHeight + spacing);
+  return { sx, sy };
+}
+
+function getTileColRow(index) {
+  return { col: index % cols, row: Math.floor(index / cols) };
+}
+
+function drawTileToCanvas(ctx, index, dx, dy, dw, dh) {
+  const { col, row } = getTileColRow(index);
+  const { sx, sy } = getTileSourceXY(col, row);
+  ctx.drawImage(img, sx, sy, tileWidth, tileHeight, dx, dy, dw, dh);
+}
+
+function buildGrid() {
+  const gridEl = document.getElementById('tile-grid');
+  gridEl.innerHTML = '';
+
+  for (let r = 0; r < rows; r++) {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'tile-row';
+
+    for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'tile-wrapper';
+
+      const label = document.createElement('div');
+      label.className = 'tile-index';
+      label.textContent = idx;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = tileWidth * scale;
+      canvas.height = tileHeight * scale;
+      canvas.className = 'tile-canvas';
+      canvas.dataset.idx = idx;
+      canvas.dataset.row = r;
+      canvas.dataset.col = c;
+      canvas.title = '#' + idx + ' (r' + r + ', c' + c + ')';
+
+      const tctx = canvas.getContext('2d');
+      tctx.imageSmoothingEnabled = false;
+      const { sx, sy } = getTileSourceXY(c, r);
+      tctx.drawImage(img, sx, sy, tileWidth, tileHeight, 0, 0, tileWidth * scale, tileHeight * scale);
+
+      canvas.addEventListener('click', function() { onTileClick(idx, r, c); });
+
+      wrapper.appendChild(label);
+      wrapper.appendChild(canvas);
+      rowDiv.appendChild(wrapper);
+    }
+    gridEl.appendChild(rowDiv);
+  }
+}
+
+function onTileClick(idx, row, col) {
+  // Always inspect
+  inspectTile(idx, row, col);
+
+  // Add to current mode
+  if (currentMode === 'animation') {
+    addAnimFrame(idx);
+  } else {
+    addCompLayer(idx);
+  }
+}
+
+function inspectTile(idx, row, col) {
+  // Highlight selected tile
+  document.querySelectorAll('.tile-canvas.selected').forEach(function(t) {
+    t.classList.remove('selected');
+  });
+  var el = document.querySelector('.tile-canvas[data-idx="' + idx + '"]');
+  if (el) el.classList.add('selected');
+
+  // Draw preview
+  inspectCtx.clearRect(0, 0, 96, 96);
+  const { sx, sy } = getTileSourceXY(col, row);
+  inspectCtx.drawImage(img, sx, sy, tileWidth, tileHeight, 0, 0, 96, 96);
+
+  // Show info
+  document.getElementById('inspect-info').innerHTML =
+    'Index: <span>' + idx + '</span><br>' +
+    'Row: <span>' + row + '</span> | Col: <span>' + col + '</span><br>' +
+    'Pixel: <span>(' + sx + ', ' + sy + ')</span>';
+}
+
+// ====== Animation Mode ======
+
+function addAnimFrame(idx) {
+  animFrames.push(idx);
+  renderAnimFrames();
+  updateAnimPreview();
+  updateGridHighlights();
+}
+
+function removeAnimFrame(i) {
+  animFrames.splice(i, 1);
+  renderAnimFrames();
+  updateAnimPreview();
+  updateGridHighlights();
+}
+
+function moveAnimFrame(fromIdx, direction) {
+  const toIdx = fromIdx + direction;
+  if (toIdx < 0 || toIdx >= animFrames.length) return;
+  const temp = animFrames[fromIdx];
+  animFrames[fromIdx] = animFrames[toIdx];
+  animFrames[toIdx] = temp;
+  renderAnimFrames();
+  updateAnimPreview();
+}
+
+function clearAnimFrames() {
+  animFrames = [];
+  renderAnimFrames();
+  updateAnimPreview();
+  updateGridHighlights();
+}
+
+function renderAnimFrames() {
+  const container = document.getElementById('anim-frames');
+  container.innerHTML = '';
+
+  animFrames.forEach(function(tileIdx, i) {
+    const item = document.createElement('div');
+    item.className = 'frame-item';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = tileWidth * 2;
+    canvas.height = tileHeight * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    drawTileToCanvas(ctx, tileIdx, 0, 0, tileWidth * 2, tileHeight * 2);
+
+    const orderLabel = document.createElement('span');
+    orderLabel.className = 'frame-order';
+    orderLabel.textContent = i;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'frame-remove';
+    removeBtn.textContent = 'x';
+    removeBtn.onclick = function(e) { e.stopPropagation(); removeAnimFrame(i); };
+
+    item.appendChild(canvas);
+    item.appendChild(orderLabel);
+    item.appendChild(removeBtn);
+
+    if (i > 0) {
+      const leftBtn = document.createElement('button');
+      leftBtn.className = 'frame-move frame-move-left';
+      leftBtn.textContent = '<';
+      leftBtn.onclick = function(e) { e.stopPropagation(); moveAnimFrame(i, -1); };
+      item.appendChild(leftBtn);
+    }
+    if (i < animFrames.length - 1) {
+      const rightBtn = document.createElement('button');
+      rightBtn.className = 'frame-move frame-move-right';
+      rightBtn.textContent = '>';
+      rightBtn.onclick = function(e) { e.stopPropagation(); moveAnimFrame(i, 1); };
+      item.appendChild(rightBtn);
+    }
+
+    container.appendChild(item);
+  });
+
+  document.getElementById('save-anim-btn').disabled =
+    animFrames.length === 0 || !document.getElementById('anim-name').value.trim();
+}
+
+function updateAnimPreview() {
+  if (animPreviewInterval) {
+    clearInterval(animPreviewInterval);
+    animPreviewInterval = null;
+  }
+
+  animPreviewCtx.clearRect(0, 0, 96, 96);
+
+  if (animFrames.length === 0) return;
+
+  const fps = parseInt(document.getElementById('anim-fps').value) || 8;
+  let frameIdx = 0;
+
+  function drawFrame() {
+    animPreviewCtx.clearRect(0, 0, 96, 96);
+    drawTileToCanvas(animPreviewCtx, animFrames[frameIdx], 0, 0, 96, 96);
+    frameIdx = (frameIdx + 1) % animFrames.length;
+  }
+
+  drawFrame();
+  if (animFrames.length > 1) {
+    animPreviewInterval = setInterval(drawFrame, 1000 / fps);
+  }
+}
+
+function saveAnimation() {
+  const name = document.getElementById('anim-name').value.trim();
+  if (!name || animFrames.length === 0) return;
+
+  savedAnimations[name] = {
+    frames: animFrames.slice(),
+    frameRate: parseInt(document.getElementById('anim-fps').value) || 8,
+    loop: document.getElementById('anim-loop').checked
+  };
+
+  // Reset current animation form
+  document.getElementById('anim-name').value = '';
+  animFrames = [];
+  renderAnimFrames();
+  updateAnimPreview();
+  renderSavedAnimations();
+  updateGridHighlights();
+  updateSendButton();
+}
+
+function deleteAnimation(name) {
+  delete savedAnimations[name];
+  renderSavedAnimations();
+  updateSendButton();
+}
+
+function renderSavedAnimations() {
+  const container = document.getElementById('saved-anims');
+  container.innerHTML = '';
+
+  const heading = document.createElement('h3');
+  heading.textContent = 'Saved Animations';
+  container.appendChild(heading);
+
+  const names = Object.keys(savedAnimations);
+  if (names.length === 0) {
+    const empty = document.createElement('p');
+    empty.style.cssText = 'font-size:12px;color:var(--text-dim);';
+    empty.textContent = 'No animations saved yet';
+    container.appendChild(empty);
+  } else {
+    names.forEach(function(name) {
+      const anim = savedAnimations[name];
+
+      const item = document.createElement('div');
+      item.className = 'saved-item';
+
+      const info = document.createElement('div');
+      info.className = 'saved-item-info';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'name';
+      nameEl.textContent = name;
+
+      const detail = document.createElement('div');
+      detail.className = 'detail';
+      detail.textContent = anim.frames.length + ' frames, ' + anim.frameRate + ' fps' +
+        (anim.loop ? ', loop' : '');
+
+      info.appendChild(nameEl);
+      info.appendChild(detail);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', function() { deleteAnimation(name); });
+
+      item.appendChild(info);
+      item.appendChild(deleteBtn);
+      container.appendChild(item);
+    });
+  }
+}
+
+// ====== Layer Mode ======
+
+function addCompLayer(idx) {
+  compLayers.push(idx);
+  renderCompLayers();
+  updateComposePreview();
+}
+
+function removeCompLayer(i) {
+  compLayers.splice(i, 1);
+  renderCompLayers();
+  updateComposePreview();
+}
+
+function clearCompLayers() {
+  compLayers = [];
+  renderCompLayers();
+  updateComposePreview();
+}
+
+function renderCompLayers() {
+  const container = document.getElementById('comp-layers');
+  container.innerHTML = '';
+
+  compLayers.forEach(function(tileIdx, i) {
+    const item = document.createElement('div');
+    item.className = 'layer-item';
+
+    const left = document.createElement('span');
+    const canvas = document.createElement('canvas');
+    canvas.width = tileWidth * 2;
+    canvas.height = tileHeight * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    drawTileToCanvas(ctx, tileIdx, 0, 0, tileWidth * 2, tileHeight * 2);
+
+    left.appendChild(canvas);
+    left.appendChild(document.createTextNode(' Layer ' + i + ' (tile #' + tileIdx + ')'));
+
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = 'Remove';
+    removeBtn.onclick = function() { removeCompLayer(i); };
+
+    item.appendChild(left);
+    item.appendChild(removeBtn);
+    container.appendChild(item);
+  });
+
+  document.getElementById('save-comp-btn').disabled =
+    compLayers.length === 0 || !document.getElementById('comp-name').value.trim();
+}
+
+function updateComposePreview() {
+  composePreviewCtx.clearRect(0, 0, 96, 96);
+  compLayers.forEach(function(tileIdx) {
+    drawTileToCanvas(composePreviewCtx, tileIdx, 0, 0, 96, 96);
+  });
+}
+
+function saveComposition() {
+  const name = document.getElementById('comp-name').value.trim();
+  if (!name || compLayers.length === 0) return;
+
+  savedCompositions[name] = {
+    layers: compLayers.slice()
+  };
+
+  document.getElementById('comp-name').value = '';
+  compLayers = [];
+  renderCompLayers();
+  updateComposePreview();
+  renderSavedCompositions();
+  updateSendButton();
+}
+
+function deleteComposition(name) {
+  delete savedCompositions[name];
+  renderSavedCompositions();
+  updateSendButton();
+}
+
+function renderSavedCompositions() {
+  const container = document.getElementById('saved-comps');
+  container.innerHTML = '';
+
+  const heading = document.createElement('h3');
+  heading.textContent = 'Saved Compositions';
+  container.appendChild(heading);
+
+  const names = Object.keys(savedCompositions);
+  if (names.length === 0) {
+    const empty = document.createElement('p');
+    empty.style.cssText = 'font-size:12px;color:var(--text-dim);';
+    empty.textContent = 'No compositions saved yet';
+    container.appendChild(empty);
+  } else {
+    names.forEach(function(name) {
+      const comp = savedCompositions[name];
+
+      const item = document.createElement('div');
+      item.className = 'saved-item';
+
+      const info = document.createElement('div');
+      info.className = 'saved-item-info';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'name';
+      nameEl.textContent = name;
+
+      const detail = document.createElement('div');
+      detail.className = 'detail';
+      detail.textContent = comp.layers.length + ' layers [' + comp.layers.join(', ') + ']';
+
+      info.appendChild(nameEl);
+      info.appendChild(detail);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', function() { deleteComposition(name); });
+
+      item.appendChild(info);
+      item.appendChild(deleteBtn);
+      container.appendChild(item);
+    });
+  }
+}
+
+// ====== Mode Switching ======
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-tab').forEach(function(tab) {
+    tab.classList.toggle('active', tab.dataset.mode === mode);
+  });
+  document.querySelectorAll('.mode-panel').forEach(function(panel) {
+    panel.classList.remove('active');
+  });
+  document.getElementById(mode === 'animation' ? 'animation-panel' : 'layer-panel').classList.add('active');
+  updateGridHighlights();
+}
+
+function updateGridHighlights() {
+  document.querySelectorAll('.tile-canvas.in-sequence').forEach(function(t) {
+    t.classList.remove('in-sequence');
+  });
+
+  if (currentMode === 'animation') {
+    animFrames.forEach(function(idx) {
+      var el = document.querySelector('.tile-canvas[data-idx="' + idx + '"]');
+      if (el) el.classList.add('in-sequence');
+    });
+  } else {
+    compLayers.forEach(function(idx) {
+      var el = document.querySelector('.tile-canvas[data-idx="' + idx + '"]');
+      if (el) el.classList.add('in-sequence');
+    });
+  }
+}
+
+// ====== Send to Claude ======
+
+function updateSendButton() {
+  const hasData = Object.keys(savedAnimations).length > 0 || Object.keys(savedCompositions).length > 0;
+  document.getElementById('send-btn').disabled = !hasData;
+}
+
+async function sendToClaude() {
+  const payload = {
+    animations: {},
+    compositions: {}
+  };
+
+  Object.keys(savedAnimations).forEach(function(name) {
+    payload.animations[name] = {
+      frames: savedAnimations[name].frames,
+      frameRate: savedAnimations[name].frameRate,
+      loop: savedAnimations[name].loop
+    };
+  });
+
+  Object.keys(savedCompositions).forEach(function(name) {
+    payload.compositions[name] = {
+      layers: savedCompositions[name].layers
+    };
+  });
+
+  try {
+    const resp = await fetch('/api/inspector/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (resp.ok) {
+      document.getElementById('status-banner').classList.add('visible');
+      document.getElementById('send-btn').disabled = true;
+      document.getElementById('send-btn').textContent = 'Sent!';
+    }
+  } catch (err) {
+    document.getElementById('send-btn').textContent = 'Error - try again';
+    document.getElementById('send-btn').disabled = false;
+  }
+}
+
+// ====== Utilities ======
+
+// Enable save buttons when name inputs change
+document.getElementById('anim-name').addEventListener('input', function() {
+  document.getElementById('save-anim-btn').disabled =
+    animFrames.length === 0 || !this.value.trim();
+});
+
+document.getElementById('comp-name').addEventListener('input', function() {
+  document.getElementById('save-comp-btn').disabled =
+    compLayers.length === 0 || !this.value.trim();
+});
+
+// Update animation preview when fps changes
+document.getElementById('anim-fps').addEventListener('input', function() {
+  updateAnimPreview();
+});
+
+// Initialize
+renderSavedAnimations();
+renderSavedCompositions();
+updateSendButton();
+</script>
+</body>
+</html>

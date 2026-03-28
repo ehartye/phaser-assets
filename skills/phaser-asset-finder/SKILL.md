@@ -49,9 +49,9 @@ Use `WebFetch` on promising results to get:
 
 Aim to find **4-8 options** across sources so the user has real choices.
 
-## Step 3: Show the Preview UI
+## Step 3: Show the Preview UI and Download Assets
 
-This is the key step that makes asset selection visual and fun instead of a wall of text links.
+This is the key step that makes asset selection visual and fun instead of a wall of text links. The asset server handles preview, selection, and downloading all in one flow.
 
 1. For each found asset, prepare a JSON object:
 
@@ -72,27 +72,43 @@ This is the key step that makes asset selection visual and fun instead of a wall
 ]
 ```
 
-2. Run the preview script, piping the asset JSON via stdin:
+2. Ensure the asset server is running:
 ```bash
-echo '<asset_json_array>' | python "$CLAUDE_PLUGIN_ROOT/scripts/preview.py" \
-  --context "description of what was searched for" \
-  --project "/absolute/path/to/user/project"
+curl -s http://localhost:8483/health || python "$CLAUDE_PLUGIN_ROOT/scripts/server.py" --port 8483 --no-open &
 ```
 
-The script handles template population, session ID generation, writing to the system temp directory, and opening the browser. It outputs JSON with `session_id` and `preview_path`.
-
-3. The user browses the visual grid, selects assets they want, and clicks "Confirm Selection". This downloads a file named `asset-selections-{session_id}.json` to the user's Downloads folder. Tell the user you're waiting for their selection, then poll for the file:
+3. Start a session by POSTing asset data:
 ```bash
-# Look for the unique selections file using the session_id from the script output
-ls ~/Downloads/asset-selections-{session_id}.json
+curl -s -X POST http://localhost:8483/start \
+  -H "Content-Type: application/json" \
+  -d '{"assets": <asset_json_array>, "project_path": "<absolute_project_path>", "search_context": "<what was searched for>"}'
 ```
-   Once found, read it and proceed.
 
-4. Download the selected assets into the project's `assets/` folder.
+4. Tell the user to open http://localhost:8483 to browse and select assets. They click "Download to Project" and the server downloads assets directly into the project.
 
-## Step 4: Download Assets into the Project
+5. Poll for completion:
+```bash
+curl -s http://localhost:8483/api/status
+```
+Wait until `status` is `"done"`.
 
-Download the selected assets directly into the project's asset directory — not the user's Downloads folder. Use the project's existing asset structure if it has one, otherwise create a sensible default:
+6. Get results:
+```bash
+curl -s http://localhost:8483/api/results
+```
+The response contains `downloaded` (array of assets with `path` relative to project) and `failed` (array with `source_url` preserved for retry).
+
+7. If any assets failed to download, retry them with curl using the `source_url` from the failed array — do NOT re-search:
+```bash
+curl -L -o "<project_path>/<appropriate_subdir>/<filename>" "<source_url>"
+```
+
+8. Shut down the server:
+```bash
+curl -s -X POST http://localhost:8483/shutdown
+```
+
+**Default asset directory structure** — use the project's existing structure if it has one, otherwise the server organizes assets into:
 
 ```
 assets/
@@ -107,21 +123,17 @@ assets/
 └── tilemaps/
 ```
 
-For downloads:
-- Use `curl` or `wget` via Bash to download files
-- Unzip asset packs if they come as .zip files
-- Rename files to be clean and consistent (no spaces, lowercase, descriptive)
-- Keep a note of which assets came from where and their licenses
-
 Create a `CREDITS.md` in the assets directory listing each asset, its source, author, and license. This is important — even CC0 assets deserve attribution, and CC-BY assets require it.
 
-## Step 5: Generate Phaser JS Integration Code
+## Step 4: Generate Phaser JS Integration Code
 
 Generate the code the user needs to load and use each asset in their Phaser game. Read `references/phaser-integration.md` for the exact code patterns for each asset type.
 
+Use the `path` field from the `/api/results` response to reference exact file locations — do not guess paths. Each entry in the `downloaded` array includes the relative path where the file was saved.
+
 **What to generate:**
 
-1. **Preload code** — `this.load.*` calls for each asset
+1. **Preload code** — `this.load.*` calls for each asset, using the exact `path` from results
 2. **Create code** — How to create sprites, animations, tilemaps from the loaded assets
 3. **Animation definitions** — If sprite sheets have multiple animations, define them
 
@@ -132,6 +144,7 @@ Present this code clearly, either:
 **Example output for a character sprite sheet:**
 ```javascript
 // In your preload() method:
+// Use the exact path from /api/results downloaded[].path
 this.load.spritesheet('knight', 'assets/images/characters/knight.png', {
   frameWidth: 32,
   frameHeight: 32

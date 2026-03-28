@@ -418,6 +418,7 @@ class AssetHandler(BaseHTTPRequestHandler):
                 session.inspector["tile_config"].get("tile_height", 32),
             ],
             "animations": body.get("animations", {}),
+            "selections": body.get("selections", {}),
             "compositions": body.get("compositions", {}),
         }
         session.inspector["status"] = "submitted"

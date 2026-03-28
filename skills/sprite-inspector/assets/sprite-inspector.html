@@ -531,6 +531,7 @@
   <div class="mode-tabs">
     <button class="mode-tab active" data-mode="animation" onclick="switchMode('animation')">Animation</button>
     <button class="mode-tab" data-mode="layer" onclick="switchMode('layer')">Layer</button>
+    <button class="mode-tab" data-mode="selection" onclick="switchMode('selection')">Selection</button>
   </div>
 
   <!-- Mode content -->
@@ -565,6 +566,24 @@
 
       <div class="saved-list" id="saved-anims">
         <h3>Saved Animations</h3>
+      </div>
+    </div>
+
+    <!-- Selection Mode -->
+    <div id="selection-panel" class="mode-panel">
+      <div class="field">
+        <label>Batch Name</label>
+        <input type="text" id="sel-name" placeholder="e.g. weapons, potions, coins">
+      </div>
+      <p class="hint">Click tiles to add to this batch</p>
+
+      <div class="frame-list" id="sel-tiles"></div>
+
+      <button class="btn btn-accent" id="save-sel-btn" onclick="saveSelection()" disabled>Save Batch</button>
+      <button class="btn btn-outline" onclick="clearSelectionTiles()">Clear</button>
+
+      <div class="saved-list" id="saved-sels">
+        <h3>Saved Selections</h3>
       </div>
     </div>
 
@@ -617,6 +636,10 @@ let currentMode = 'animation';
 let animFrames = [];     // array of tile indices
 let savedAnimations = {}; // { name: { frames, frameRate, loop } }
 let animPreviewInterval = null;
+
+// Selection state
+let selectionTiles = [];   // array of tile indices
+let savedSelections = {};  // { name: { tiles: [...] } }
 
 // Layer state
 let compLayers = [];     // array of tile indices
@@ -714,6 +737,8 @@ function onTileClick(idx, row, col) {
   // Add to current mode
   if (currentMode === 'animation') {
     addAnimFrame(idx);
+  } else if (currentMode === 'selection') {
+    addSelectionTile(idx);
   } else {
     addCompLayer(idx);
   }
@@ -920,6 +945,130 @@ function renderSavedAnimations() {
   }
 }
 
+// ====== Selection Mode ======
+
+function addSelectionTile(idx) {
+  if (selectionTiles.indexOf(idx) === -1) {
+    selectionTiles.push(idx);
+  }
+  renderSelectionTiles();
+  updateGridHighlights();
+}
+
+function removeSelectionTile(i) {
+  selectionTiles.splice(i, 1);
+  renderSelectionTiles();
+  updateGridHighlights();
+}
+
+function clearSelectionTiles() {
+  selectionTiles = [];
+  renderSelectionTiles();
+  updateGridHighlights();
+}
+
+function renderSelectionTiles() {
+  const container = document.getElementById('sel-tiles');
+  container.innerHTML = '';
+
+  selectionTiles.forEach(function(tileIdx, i) {
+    const item = document.createElement('div');
+    item.className = 'frame-item';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = tileWidth * 2;
+    canvas.height = tileHeight * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    drawTileToCanvas(ctx, tileIdx, 0, 0, tileWidth * 2, tileHeight * 2);
+
+    const orderLabel = document.createElement('span');
+    orderLabel.className = 'frame-order';
+    orderLabel.textContent = tileIdx;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'frame-remove';
+    removeBtn.textContent = 'x';
+    removeBtn.onclick = function(e) { e.stopPropagation(); removeSelectionTile(i); };
+
+    item.appendChild(canvas);
+    item.appendChild(orderLabel);
+    item.appendChild(removeBtn);
+    container.appendChild(item);
+  });
+
+  document.getElementById('save-sel-btn').disabled =
+    selectionTiles.length === 0 || !document.getElementById('sel-name').value.trim();
+}
+
+function saveSelection() {
+  const name = document.getElementById('sel-name').value.trim();
+  if (!name || selectionTiles.length === 0) return;
+
+  savedSelections[name] = {
+    tiles: selectionTiles.slice()
+  };
+
+  document.getElementById('sel-name').value = '';
+  selectionTiles = [];
+  renderSelectionTiles();
+  renderSavedSelections();
+  updateGridHighlights();
+  updateSendButton();
+}
+
+function deleteSelection(name) {
+  delete savedSelections[name];
+  renderSavedSelections();
+  updateSendButton();
+}
+
+function renderSavedSelections() {
+  const container = document.getElementById('saved-sels');
+  container.innerHTML = '';
+
+  const heading = document.createElement('h3');
+  heading.textContent = 'Saved Selections';
+  container.appendChild(heading);
+
+  const names = Object.keys(savedSelections);
+  if (names.length === 0) {
+    const empty = document.createElement('p');
+    empty.style.cssText = 'font-size:12px;color:var(--text-dim);';
+    empty.textContent = 'No selections saved yet';
+    container.appendChild(empty);
+  } else {
+    names.forEach(function(name) {
+      const sel = savedSelections[name];
+
+      const item = document.createElement('div');
+      item.className = 'saved-item';
+
+      const info = document.createElement('div');
+      info.className = 'saved-item-info';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'name';
+      nameEl.textContent = name;
+
+      const detail = document.createElement('div');
+      detail.className = 'detail';
+      detail.textContent = sel.tiles.length + ' tiles [' + sel.tiles.join(', ') + ']';
+
+      info.appendChild(nameEl);
+      info.appendChild(detail);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', function() { deleteSelection(name); });
+
+      item.appendChild(info);
+      item.appendChild(deleteBtn);
+      container.appendChild(item);
+    });
+  }
+}
+
 // ====== Layer Mode ======
 
 function addCompLayer(idx) {
@@ -1057,7 +1206,8 @@ function switchMode(mode) {
   document.querySelectorAll('.mode-panel').forEach(function(panel) {
     panel.classList.remove('active');
   });
-  document.getElementById(mode === 'animation' ? 'animation-panel' : 'layer-panel').classList.add('active');
+  const panelMap = { animation: 'animation-panel', selection: 'selection-panel', layer: 'layer-panel' };
+  document.getElementById(panelMap[mode]).classList.add('active');
   updateGridHighlights();
 }
 
@@ -1066,29 +1216,25 @@ function updateGridHighlights() {
     t.classList.remove('in-sequence');
   });
 
-  if (currentMode === 'animation') {
-    animFrames.forEach(function(idx) {
-      var el = document.querySelector('.tile-canvas[data-idx="' + idx + '"]');
-      if (el) el.classList.add('in-sequence');
-    });
-  } else {
-    compLayers.forEach(function(idx) {
-      var el = document.querySelector('.tile-canvas[data-idx="' + idx + '"]');
-      if (el) el.classList.add('in-sequence');
-    });
-  }
+  var tiles = currentMode === 'animation' ? animFrames :
+               currentMode === 'selection' ? selectionTiles : compLayers;
+  tiles.forEach(function(idx) {
+    var el = document.querySelector('.tile-canvas[data-idx="' + idx + '"]');
+    if (el) el.classList.add('in-sequence');
+  });
 }
 
 // ====== Send to Claude ======
 
 function updateSendButton() {
-  const hasData = Object.keys(savedAnimations).length > 0 || Object.keys(savedCompositions).length > 0;
+  const hasData = Object.keys(savedAnimations).length > 0 || Object.keys(savedSelections).length > 0 || Object.keys(savedCompositions).length > 0;
   document.getElementById('send-btn').disabled = !hasData;
 }
 
 async function sendToClaude() {
   const payload = {
     animations: {},
+    selections: {},
     compositions: {}
   };
 
@@ -1097,6 +1243,12 @@ async function sendToClaude() {
       frames: savedAnimations[name].frames,
       frameRate: savedAnimations[name].frameRate,
       loop: savedAnimations[name].loop
+    };
+  });
+
+  Object.keys(savedSelections).forEach(function(name) {
+    payload.selections[name] = {
+      tiles: savedSelections[name].tiles
     };
   });
 
@@ -1132,6 +1284,11 @@ document.getElementById('anim-name').addEventListener('input', function() {
     animFrames.length === 0 || !this.value.trim();
 });
 
+document.getElementById('sel-name').addEventListener('input', function() {
+  document.getElementById('save-sel-btn').disabled =
+    selectionTiles.length === 0 || !this.value.trim();
+});
+
 document.getElementById('comp-name').addEventListener('input', function() {
   document.getElementById('save-comp-btn').disabled =
     compLayers.length === 0 || !this.value.trim();
@@ -1144,6 +1301,7 @@ document.getElementById('anim-fps').addEventListener('input', function() {
 
 // Initialize
 renderSavedAnimations();
+renderSavedSelections();
 renderSavedCompositions();
 updateSendButton();
 </script>

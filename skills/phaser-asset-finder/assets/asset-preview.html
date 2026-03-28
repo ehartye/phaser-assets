@@ -291,6 +291,91 @@
   }
   .empty-state h2 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
 
+  /* Download state styles */
+  @keyframes pulse-border {
+    0%, 100% { border-color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+    50% { border-color: rgba(108, 92, 231, 0.5); box-shadow: 0 0 20px var(--accent-glow); }
+  }
+
+  .card.downloading {
+    animation: pulse-border 1.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .card.downloading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(108, 92, 231, 0.08);
+    z-index: 3;
+    border-radius: 10px;
+  }
+
+  .card.downloaded {
+    border-color: var(--success) !important;
+    box-shadow: 0 0 12px rgba(0, 184, 148, 0.25);
+  }
+  .card.downloaded .card-check {
+    background: var(--success);
+    border-color: var(--success);
+  }
+  .card.downloaded .card-check svg { opacity: 1; }
+
+  .card.download-failed {
+    border-color: var(--other) !important;
+    box-shadow: 0 0 12px rgba(225, 112, 85, 0.25);
+  }
+  .card.download-failed .card-check {
+    background: var(--other);
+    border-color: var(--other);
+  }
+  .card.download-failed .card-check svg { opacity: 1; }
+
+  .download-overlay {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .card.downloaded .download-overlay {
+    background: var(--success);
+    color: white;
+  }
+  .card.download-failed .download-overlay {
+    background: var(--other);
+    color: white;
+  }
+
+  .card-error {
+    background: rgba(225, 112, 85, 0.1);
+    border: 1px solid rgba(225, 112, 85, 0.3);
+    color: var(--other);
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-top: 8px;
+    word-break: break-word;
+  }
+
+  .card-path {
+    background: rgba(0, 184, 148, 0.1);
+    border: 1px solid rgba(0, 184, 148, 0.3);
+    color: var(--success);
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-top: 8px;
+    word-break: break-all;
+    font-family: monospace;
+  }
+
   @media (max-width: 700px) {
     .grid { grid-template-columns: 1fr; padding: 16px; }
     header { padding: 16px; flex-direction: column; gap: 12px; }
@@ -307,12 +392,12 @@
   <div class="header-actions">
     <span class="selected-count" id="selectedCount">0 selected</span>
     <button class="btn btn-secondary" id="selectAllBtn" onclick="toggleSelectAll()">Select All</button>
-    <button class="btn btn-primary" id="downloadBtn" onclick="exportSelections()" disabled>Confirm Selection</button>
+    <button class="btn btn-primary" id="downloadBtn" onclick="exportSelections()" disabled>Download to Project</button>
   </div>
 </header>
 
 <div class="status-banner" id="statusBanner">
-  Browse the assets below. When you're done, go back to Claude and tell it which ones you want — by name, number, or just "all of them."
+  Browse the assets below. Select the ones you want, then click Download to Project.
 </div>
 
 <div class="filter-bar" id="filterBar"></div>
@@ -435,28 +520,136 @@ function updateUI() {
   });
 }
 
-function exportSelections() {
+async function exportSelections() {
   const selectedAssets = ASSETS.filter(a => selected.has(a.id));
-  const payload = {
-    selections: selectedAssets,
-    projectPath: PROJECT_PATH,
-    timestamp: new Date().toISOString()
-  };
-  const data = JSON.stringify(payload, null, 2);
+  if (selectedAssets.length === 0) return;
 
-  // Try writing to the project directory first (works when served locally or via file://)
-  // Falls back to browser download if that's not possible
-  const blob = new Blob([data], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'asset-selections-' + SESSION_ID + '.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  let resp;
+  try {
+    resp = await fetch('/api/download', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({selected: [...selected]})
+    });
+  } catch (err) {
+    const banner = document.getElementById('statusBanner');
+    banner.className = 'status-banner';
+    banner.innerHTML = '<strong>Error:</strong> Could not reach the server. Please try again.';
+    return;
+  }
 
-  // Update banner to tell user what happens next
+  if (!resp.ok) {
+    const banner = document.getElementById('statusBanner');
+    banner.className = 'status-banner';
+    banner.innerHTML = '<strong>Error:</strong> Server returned ' + resp.status + '. Please try again.';
+    return;
+  }
+
+  // Disable the button and show downloading state
+  const btn = document.getElementById('downloadBtn');
+  btn.disabled = true;
+  btn.textContent = 'Downloading...';
+
+  // Disable Select All button too
+  document.getElementById('selectAllBtn').disabled = true;
+
+  // Mark selected cards as downloading
+  selected.forEach(id => {
+    const card = document.querySelector('[data-id="' + id + '"]');
+    if (card) {
+      card.classList.remove('selected');
+      card.classList.add('downloading');
+    }
+  });
+
+  // Update banner
+  const banner = document.getElementById('statusBanner');
+  banner.innerHTML = 'Downloading ' + selectedAssets.length + ' asset' + (selectedAssets.length !== 1 ? 's' : '') + '...';
+
+  pollStatus();
+}
+
+function pollStatus() {
+  const interval = setInterval(async () => {
+    try {
+      const resp = await fetch('/api/status');
+      const data = await resp.json();
+
+      // Update banner with progress
+      const total = data.downloaded + data.failed;
+      const banner = document.getElementById('statusBanner');
+      if (data.status === 'downloading') {
+        banner.innerHTML = 'Downloading... ' + total + ' processed so far (' + data.downloaded + ' downloaded, ' + data.failed + ' failed)';
+      }
+
+      if (data.status === 'done') {
+        clearInterval(interval);
+        const resultsResp = await fetch('/api/results');
+        const results = await resultsResp.json();
+        showResults(results);
+      }
+    } catch (err) {
+      // Network error during polling — keep trying
+    }
+  }, 1000);
+}
+
+function showResults(results) {
+  const downloaded = results.downloaded || [];
+  const failed = results.failed || [];
+
+  // Build lookup maps
+  const downloadedMap = {};
+  downloaded.forEach(r => { downloadedMap[r.id] = r; });
+  const failedMap = {};
+  failed.forEach(r => { failedMap[r.id] = r; });
+
+  // Update each card
+  document.querySelectorAll('.card.downloading').forEach(card => {
+    const id = card.dataset.id;
+    card.classList.remove('downloading');
+
+    if (downloadedMap[id]) {
+      card.classList.add('downloaded');
+      // Add path info to card body
+      const body = card.querySelector('.card-body');
+      if (body && downloadedMap[id].path) {
+        const pathEl = document.createElement('div');
+        pathEl.className = 'card-path';
+        pathEl.textContent = downloadedMap[id].path;
+        body.appendChild(pathEl);
+      }
+    } else if (failedMap[id]) {
+      card.classList.add('download-failed');
+      // Add error info to card body
+      const body = card.querySelector('.card-body');
+      if (body && failedMap[id].error) {
+        const errEl = document.createElement('div');
+        errEl.className = 'card-error';
+        errEl.textContent = failedMap[id].error;
+        body.appendChild(errEl);
+      }
+    }
+  });
+
+  // Update banner
   const banner = document.getElementById('statusBanner');
   banner.className = 'status-banner done';
-  banner.innerHTML = '<strong>' + selectedAssets.length + ' assets selected.</strong> Go back to Claude — it will download these into your project and generate the Phaser code.';
+  let msg = '<strong>' + downloaded.length + ' asset' + (downloaded.length !== 1 ? 's' : '') + ' downloaded.</strong>';
+  if (failed.length > 0) {
+    msg += ' <span style="color:var(--other)">' + failed.length + ' failed.</span>';
+  }
+  msg += ' Go back to Claude to generate the Phaser code.';
+  banner.innerHTML = msg;
+
+  // Re-enable button with new text
+  const btn = document.getElementById('downloadBtn');
+  btn.textContent = 'Download to Project';
+  btn.disabled = true;
+
+  // Clear the selection set since downloads are done
+  selected.clear();
+  document.getElementById('selectedCount').textContent = '0 selected';
 }
 
 init();

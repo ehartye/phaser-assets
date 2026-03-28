@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Asset Finder - Preview &amp; Select</title>
+<style>
+  :root {
+    --bg: #0f1118;
+    --surface: #1a1d2e;
+    --surface-hover: #242840;
+    --border: #2d3154;
+    --border-selected: #6c5ce7;
+    --accent: #6c5ce7;
+    --accent-glow: rgba(108, 92, 231, 0.3);
+    --text: #e8e6f0;
+    --text-dim: #8b89a0;
+    --tag-bg: #2d3154;
+    --success: #00b894;
+    --cc0: #00b894;
+    --ccby: #fdcb6e;
+    --other: #e17055;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  header h1 .icon { font-size: 24px; }
+
+  .search-context {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .selected-count {
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover { filter: brightness(1.15); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { background: var(--surface-hover); }
+
+  .filter-bar {
+    padding: 16px 32px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .filter-chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filter-chip:hover { border-color: var(--accent); color: var(--text); }
+  .filter-chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    padding: 24px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .card.selected {
+    border-color: var(--border-selected);
+    box-shadow: 0 0 0 1px var(--border-selected), 0 0 20px var(--accent-glow);
+  }
+
+  .card-check {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    transition: all 0.2s;
+  }
+  .card.selected .card-check {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .card-check svg {
+    width: 14px;
+    height: 14px;
+    fill: white;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .card.selected .card-check svg { opacity: 1; }
+
+  .card-preview {
+    width: 100%;
+    height: 200px;
+    background: #12141f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .card-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+  }
+
+  .card-preview .no-preview {
+    color: var(--text-dim);
+    font-size: 40px;
+  }
+
+  .card-body { padding: 16px; }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+
+  .card-source {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  .card-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .tag {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .tag-type { background: var(--tag-bg); color: var(--text); }
+  .tag-format { background: var(--tag-bg); color: var(--text-dim); }
+
+  .license-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .license-cc0 { background: rgba(0,184,148,0.15); color: var(--cc0); }
+  .license-ccby { background: rgba(253,203,110,0.15); color: var(--ccby); }
+  .license-other { background: rgba(225,112,85,0.15); color: var(--other); }
+
+  .card-link {
+    display: inline-block;
+    color: var(--accent);
+    font-size: 12px;
+    text-decoration: none;
+    margin-top: 4px;
+  }
+  .card-link:hover { text-decoration: underline; }
+
+  .status-banner {
+    padding: 12px 32px;
+    background: rgba(108, 92, 231, 0.1);
+    border-bottom: 1px solid rgba(108, 92, 231, 0.3);
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+  }
+  .status-banner code {
+    background: var(--tag-bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  .status-banner.done {
+    background: rgba(0, 184, 148, 0.1);
+    border-color: rgba(0, 184, 148, 0.3);
+    color: var(--success);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-dim);
+  }
+  .empty-state h2 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+
+  @media (max-width: 700px) {
+    .grid { grid-template-columns: 1fr; padding: 16px; }
+    header { padding: 16px; flex-direction: column; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1><span class="icon">&#127918;</span> Game Asset Finder</h1>
+    <div class="search-context" id="searchContext"></div>
+  </div>
+  <div class="header-actions">
+    <span class="selected-count" id="selectedCount">0 selected</span>
+    <button class="btn btn-secondary" id="selectAllBtn" onclick="toggleSelectAll()">Select All</button>
+    <button class="btn btn-primary" id="downloadBtn" onclick="exportSelections()" disabled>Confirm Selection</button>
+  </div>
+</header>
+
+<div class="status-banner" id="statusBanner">
+  Browse the assets below. When you're done, go back to Claude and tell it which ones you want — by name, number, or just "all of them."
+</div>
+
+<div class="filter-bar" id="filterBar"></div>
+
+<div class="grid" id="assetGrid"></div>
+
+<div class="empty-state" id="emptyState" style="display:none;">
+  <h2>No assets match this filter</h2>
+  <p>Try selecting a different category above</p>
+</div>
+
+<script>
+const ASSETS = __ASSET_DATA_PLACEHOLDER__;
+const SEARCH_CONTEXT = "__SEARCH_CONTEXT_PLACEHOLDER__";
+const PROJECT_PATH = "__PROJECT_PATH_PLACEHOLDER__";
+const SESSION_ID = "__SESSION_ID_PLACEHOLDER__";
+
+const selected = new Set();
+let activeFilter = 'all';
+
+function init() {
+  document.getElementById('searchContext').textContent = SEARCH_CONTEXT;
+  buildFilters();
+  renderGrid();
+}
+
+function buildFilters() {
+  const types = [...new Set(ASSETS.map(a => a.type))];
+  const bar = document.getElementById('filterBar');
+  bar.innerHTML = `<button class="filter-chip active" onclick="setFilter('all')">All (${ASSETS.length})</button>`;
+  types.forEach(t => {
+    const count = ASSETS.filter(a => a.type === t).length;
+    const label = t.charAt(0).toUpperCase() + t.slice(1);
+    bar.innerHTML += `<button class="filter-chip" data-filter="${t}" onclick="setFilter('${t}')">${label} (${count})</button>`;
+  });
+}
+
+function setFilter(type) {
+  activeFilter = type;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  if (type === 'all') {
+    document.querySelector('.filter-chip').classList.add('active');
+  } else {
+    document.querySelector(`[data-filter="${type}"]`).classList.add('active');
+  }
+  renderGrid();
+}
+
+function renderGrid() {
+  const grid = document.getElementById('assetGrid');
+  const empty = document.getElementById('emptyState');
+  const filtered = activeFilter === 'all' ? ASSETS : ASSETS.filter(a => a.type === activeFilter);
+
+  if (filtered.length === 0) {
+    grid.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  grid.style.display = 'grid';
+  empty.style.display = 'none';
+
+  grid.innerHTML = filtered.map(asset => `
+    <div class="card ${selected.has(asset.id) ? 'selected' : ''}"
+         onclick="toggleSelect('${asset.id}')" data-id="${asset.id}">
+      <div class="card-check">
+        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+      </div>
+      <div class="card-preview">
+        ${asset.previewUrl
+          ? `<img src="${asset.previewUrl}" alt="${asset.name}" onerror="this.parentElement.innerHTML='<div class=no-preview>&#127912;</div>'">`
+          : '<div class="no-preview">&#127912;</div>'}
+      </div>
+      <div class="card-body">
+        <div class="card-title">${asset.name}</div>
+        <div class="card-source">${asset.source}</div>
+        <div class="card-desc">${asset.description}</div>
+        <div class="card-meta">
+          <span class="tag tag-type">${asset.type}</span>
+          ${(asset.formats || []).map(f => `<span class="tag tag-format">${f}</span>`).join('')}
+        </div>
+        <span class="license-badge ${getLicenseClass(asset.license)}">${asset.license}</span>
+        <br>
+        <a class="card-link" href="${asset.sourceUrl}" target="_blank" onclick="event.stopPropagation()">View on ${asset.source} &#8599;</a>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getLicenseClass(license) {
+  const l = license.toLowerCase();
+  if (l.includes('cc0') || l.includes('public domain')) return 'license-cc0';
+  if (l.includes('cc-by') || l.includes('cc by')) return 'license-ccby';
+  return 'license-other';
+}
+
+function toggleSelect(id) {
+  if (selected.has(id)) {
+    selected.delete(id);
+  } else {
+    selected.add(id);
+  }
+  updateUI();
+}
+
+function toggleSelectAll() {
+  const filtered = activeFilter === 'all' ? ASSETS : ASSETS.filter(a => a.type === activeFilter);
+  const allSelected = filtered.every(a => selected.has(a.id));
+  filtered.forEach(a => {
+    if (allSelected) selected.delete(a.id);
+    else selected.add(a.id);
+  });
+  updateUI();
+}
+
+function updateUI() {
+  document.getElementById('selectedCount').textContent = `${selected.size} selected`;
+  document.getElementById('downloadBtn').disabled = selected.size === 0;
+  document.querySelectorAll('.card').forEach(card => {
+    card.classList.toggle('selected', selected.has(card.dataset.id));
+  });
+}
+
+function exportSelections() {
+  const selectedAssets = ASSETS.filter(a => selected.has(a.id));
+  const payload = {
+    selections: selectedAssets,
+    projectPath: PROJECT_PATH,
+    timestamp: new Date().toISOString()
+  };
+  const data = JSON.stringify(payload, null, 2);
+
+  // Try writing to the project directory first (works when served locally or via file://)
+  // Falls back to browser download if that's not possible
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'asset-selections-' + SESSION_ID + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+
+  // Update banner to tell user what happens next
+  const banner = document.getElementById('statusBanner');
+  banner.className = 'status-banner done';
+  banner.innerHTML = '<strong>' + selectedAssets.length + ' assets selected.</strong> Go back to Claude — it will download these into your project and generate the Phaser code.';
+}
+
+init();
+</script>
+</body>
+</html>

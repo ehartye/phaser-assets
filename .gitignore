@@ -1,0 +1,13 @@
+# Claude Code local settings
+.claude/*.local.md
+
+# Generated asset files
+asset-preview-*.html
+asset-selections-*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node (if scripts are added later)
+node_modules/

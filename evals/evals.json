@@ -1,0 +1,51 @@
+{
+  "skill_name": "phaser-asset-finder",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm making a platformer game in Phaser and need a player character with walk and jump animations, plus some ground tiles to build levels with",
+      "expected_output": "Found character sprite sheets and tileset packs from free sources, showed preview UI, generated Phaser preload/create code with animations",
+      "files": [],
+      "expectations": [
+        "Found character sprite assets with animation frames",
+        "Found tileset or ground tile assets",
+        "At least 3 distinct asset options from real free sources",
+        "Phaser code includes this.load.spritesheet or this.load.atlas",
+        "Phaser code includes this.anims.create for animations",
+        "License information provided for every asset",
+        "All source URLs are from real free asset sites",
+        "Preview HTML file generated with asset cards (with_skill only)"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "find me some space shooter assets - a ship, enemy sprites, lasers, explosions, and maybe some background music",
+      "expected_output": "Found space-themed sprites, projectiles, explosions, and music from free sources, showed preview UI, generated Phaser loading code for images and audio",
+      "files": [],
+      "expectations": [
+        "Found ship/player spacecraft sprite assets",
+        "Found enemy sprite assets",
+        "Found projectile/laser and explosion effect assets",
+        "Found audio or music assets (not just images)",
+        "At least 4 distinct asset options from real free sources",
+        "Phaser code handles both image and audio loading",
+        "License information provided for every asset",
+        "Preview HTML file generated with asset cards (with_skill only)"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I need UI elements for my RPG game - health bars, inventory slots, buttons, and item icons",
+      "expected_output": "Found UI packs and icon sets from free sources, showed preview UI, generated Phaser loading code",
+      "files": [],
+      "expectations": [
+        "Found UI-specific assets (not generic character sprites)",
+        "At least 3 different UI element types covered",
+        "At least 3 distinct asset options from real free sources",
+        "Phaser code uses appropriate loading for UI elements",
+        "License information provided for every asset",
+        "Preview HTML file generated with asset cards (with_skill only)"
+      ]
+    }
+  ]
+}

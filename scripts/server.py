@@ -336,6 +336,9 @@ class AssetHandler(BaseHTTPRequestHandler):
 
     def handle_inspector_load(self):
         body = self.read_body()
+        # Accept project_path so the inspector is self-contained (no /start needed)
+        if body.get("project_path"):
+            session.project_path = body["project_path"]
         session.inspector = {
             "image_path": body.get("image_path", ""),
             "tile_config": {

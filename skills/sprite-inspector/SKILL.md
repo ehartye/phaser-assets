@@ -31,11 +31,11 @@ If the sprite sheet was downloaded by asset-finder, use the metadata from that s
 curl -s http://localhost:8483/health || python "$CLAUDE_PLUGIN_ROOT/scripts/server.py" --port 8483 --no-open &
 ```
 
-2. POST the sprite sheet config:
+2. POST the sprite sheet config (include `project_path` so the server can resolve the image):
 ```bash
 curl -s -X POST http://localhost:8483/api/inspector/load \
   -H "Content-Type: application/json" \
-  -d '{"image_path": "<relative_path>", "tile_width": <W>, "tile_height": <H>, "margin": <M>, "spacing": <S>}'
+  -d '{"project_path": "<absolute_project_path>", "image_path": "<relative_path>", "tile_width": <W>, "tile_height": <H>, "margin": <M>, "spacing": <S>}'
 ```
 
 3. Tell the user to open http://localhost:8483/inspector to use the visual inspector. Explain the two modes:

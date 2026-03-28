@@ -164,10 +164,13 @@ class AssetHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?")[0]
         routes = {
-            "/":            self.handle_index,
-            "/health":      self.handle_health,
-            "/api/status":  self.handle_status,
-            "/api/results": self.handle_results,
+            "/":                      self.handle_index,
+            "/health":                self.handle_health,
+            "/api/status":            self.handle_status,
+            "/api/results":           self.handle_results,
+            "/inspector":             self.handle_inspector,
+            "/inspector/image":       self.handle_inspector_image,
+            "/api/inspector/results": self.handle_inspector_results,
         }
         handler = routes.get(path)
         if handler:
@@ -178,9 +181,11 @@ class AssetHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = self.path.split("?")[0]
         routes = {
-            "/start":        self.handle_start,
-            "/api/download": self.handle_download,
-            "/shutdown":     self.handle_shutdown,
+            "/start":                self.handle_start,
+            "/api/download":         self.handle_download,
+            "/shutdown":             self.handle_shutdown,
+            "/api/inspector/load":   self.handle_inspector_load,
+            "/api/inspector/submit": self.handle_inspector_submit,
         }
         handler = routes.get(path)
         if handler:
@@ -324,6 +329,105 @@ class AssetHandler(BaseHTTPRequestHandler):
         self.send_json({"status": "shutting down"})
         if _server_ref:
             threading.Thread(target=_server_ref.shutdown, daemon=True).start()
+
+    # ------------------------------------------------------------------
+    # Inspector routes
+    # ------------------------------------------------------------------
+
+    def handle_inspector_load(self):
+        body = self.read_body()
+        session.inspector = {
+            "image_path": body.get("image_path", ""),
+            "tile_config": {
+                "tile_width": body.get("tile_width", 32),
+                "tile_height": body.get("tile_height", 32),
+                "margin": body.get("margin", 0),
+                "spacing": body.get("spacing", 0),
+            },
+            "status": "active",
+            "results": None,
+        }
+        self.send_json({"status": "loaded", "image_path": session.inspector["image_path"]})
+
+    def handle_inspector(self):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        template_path = os.path.join(
+            script_dir, "..", "skills", "sprite-inspector", "assets", "sprite-inspector.html"
+        )
+        try:
+            with open(template_path, "r", encoding="utf-8") as f:
+                html = f.read()
+        except FileNotFoundError:
+            self.send_json({"error": "inspector template not found"}, 500)
+            return
+
+        html = html.replace("__TILE_CONFIG_PLACEHOLDER__", json.dumps(session.inspector.get("tile_config", {})))
+        html = html.replace('"__IMAGE_PATH_PLACEHOLDER__"', json.dumps(session.inspector.get("image_path", "")))
+
+        self.send_html(html)
+
+    def handle_inspector_image(self):
+        image_path = session.inspector.get("image_path", "")
+        if not image_path or not session.project_path:
+            self.send_json({"error": "no image loaded"}, 400)
+            return
+
+        full_path = os.path.join(session.project_path, image_path)
+        full_path = os.path.realpath(full_path)
+
+        # Security: ensure the resolved path is within the project directory
+        project_real = os.path.realpath(session.project_path)
+        if not full_path.startswith(project_real + os.sep) and full_path != project_real:
+            self.send_json({"error": "path escapes project directory"}, 403)
+            return
+
+        if not os.path.isfile(full_path):
+            self.send_json({"error": "image not found", "path": full_path}, 404)
+            return
+
+        ext = os.path.splitext(full_path)[1].lower()
+        content_types = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif": "image/gif",
+            ".svg": "image/svg+xml",
+            ".webp": "image/webp",
+        }
+        ct = content_types.get(ext, "application/octet-stream")
+
+        with open(full_path, "rb") as f:
+            data = f.read()
+
+        self.send_response(200)
+        self.send_header("Content-Type", ct)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def handle_inspector_submit(self):
+        body = self.read_body()
+        session.inspector["results"] = {
+            "sprite_sheet": session.inspector.get("image_path", ""),
+            "tile_size": [
+                session.inspector["tile_config"].get("tile_width", 32),
+                session.inspector["tile_config"].get("tile_height", 32),
+            ],
+            "animations": body.get("animations", {}),
+            "compositions": body.get("compositions", {}),
+        }
+        session.inspector["status"] = "submitted"
+        self.send_json({"status": "submitted"})
+
+    def handle_inspector_results(self):
+        if session.inspector.get("status") != "submitted":
+            self.send_json({"status": session.inspector.get("status", "idle"), "results": None})
+            return
+        self.send_json({
+            "status": "submitted",
+            "results": session.inspector.get("results"),
+        })
 
 
 # ---------------------------------------------------------------------------

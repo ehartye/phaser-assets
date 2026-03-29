@@ -114,6 +114,12 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 if _script_dir not in sys.path:
     sys.path.insert(0, _script_dir)
 
+# When run as `python server.py`, the module is __main__ not server.
+# Route modules do `from server import session` which would create a second
+# copy of the module. Register __main__ as 'server' so they share state.
+if __name__ == "__main__" and "server" not in sys.modules:
+    sys.modules["server"] = sys.modules[__name__]
+
 from routes import collect_routes  # noqa: E402
 from routes.health import HealthRoutes  # noqa: E402
 from routes.asset_finder import AssetFinderRoutes  # noqa: E402

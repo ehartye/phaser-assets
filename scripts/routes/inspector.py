@@ -42,7 +42,7 @@ class InspectorRoutes:
         from server import session
         script_dir = os.path.dirname(os.path.abspath(__file__))
         template_path = os.path.join(
-            script_dir, "..", "skills", "sprite-inspector", "assets", "sprite-inspector.html"
+            script_dir, "..", "..", "skills", "sprite-inspector", "assets", "sprite-inspector.html"
         )
         try:
             with open(template_path, "r", encoding="utf-8") as f:

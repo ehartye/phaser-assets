@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scene Designer</title>
+<style>
+  :root {
+    --bg: #0f1118;
+    --surface: #1a1d2e;
+    --surface-hover: #242840;
+    --border: #2d3154;
+    --border-selected: #6c5ce7;
+    --accent: #6c5ce7;
+    --accent-glow: rgba(108, 92, 231, 0.3);
+    --text: #e8e6f0;
+    --text-dim: #8b89a0;
+    --tag-bg: #2d3154;
+    --success: #00b894;
+    --danger: #e17055;
+    --warning: #fdcb6e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* === Main Layout === */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* === Left Panel - Tileset Palette === */
+  #palette-panel {
+    width: 260px;
+    min-width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #palette-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #palette-header h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  #palette-header .subtitle {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* Tileset tabs */
+  .tileset-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .tileset-tab {
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+
+  .tileset-tab:hover {
+    color: var(--text);
+    background: var(--surface-hover);
+  }
+
+  .tileset-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* Recently used section */
+  #recent-section {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #recent-section h3 {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  #recent-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    min-height: 24px;
+  }
+
+  #recent-tiles:empty::after {
+    content: 'Paint to populate';
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  /* Tile palette grid */
+  #palette-grid {
+    flex: 1;
+    overflow: auto;
+    padding: 8px;
+  }
+
+  .palette-tile {
+    display: inline-block;
+    image-rendering: pixelated;
+    border: 1px solid transparent;
+    cursor: pointer;
+    margin: 1px;
+    vertical-align: top;
+  }
+
+  .palette-tile:hover {
+    border-color: var(--accent);
+  }
+
+  .palette-tile.selected {
+    border-color: #fff;
+    outline: 1px solid var(--accent);
+  }
+
+  .recent-tile {
+    display: inline-block;
+    image-rendering: pixelated;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    vertical-align: top;
+  }
+
+  .recent-tile:hover {
+    border-color: var(--accent);
+  }
+
+  .recent-tile.selected {
+    border-color: #fff;
+    outline: 1px solid var(--accent);
+  }
+
+  /* === Center Panel - Scene Canvas === */
+  #canvas-panel {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    background: #0a0c12;
+  }
+
+  #canvas-container {
+    position: relative;
+    display: inline-block;
+    margin: 16px;
+  }
+
+  #scene-canvas {
+    image-rendering: pixelated;
+    display: block;
+  }
+
+  #grid-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  #zone-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  /* Zoom controls */
+  #zoom-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 4px;
+    z-index: 10;
+  }
+
+  .zoom-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+
+  .zoom-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--accent);
+  }
+
+  #zoom-level {
+    line-height: 32px;
+    padding: 0 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+
+  /* === Right Panel - Layers & Zones === */
+  #properties-panel {
+    width: 280px;
+    min-width: 280px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #properties-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #properties-header h2 {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* Section containers in right panel */
+  .prop-section {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .prop-section h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  /* Layer list */
+  .layer-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .layer-item:hover {
+    background: var(--surface-hover);
+  }
+
+  .layer-item.active {
+    border-color: var(--accent);
+    background: rgba(108, 92, 231, 0.1);
+  }
+
+  .layer-item .layer-name {
+    flex: 1;
+    margin: 0 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .layer-item .layer-type {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-right: 6px;
+  }
+
+  .layer-vis-btn,
+  .layer-del-btn {
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+    background: transparent;
+    color: var(--text-dim);
+  }
+
+  .layer-vis-btn:hover { color: var(--text); }
+  .layer-vis-btn.hidden { color: var(--danger); opacity: 0.5; }
+  .layer-del-btn:hover { background: var(--danger); color: white; }
+
+  .layer-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  /* Reorder buttons */
+  .layer-move-btn {
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: var(--text-dim);
+  }
+
+  .layer-move-btn:hover { color: var(--text); }
+
+  /* Zone list */
+  .zone-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 4px;
+    font-size: 12px;
+  }
+
+  .zone-item .zone-name {
+    flex: 1;
+    margin: 0 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .zone-item .zone-type {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 6px;
+  }
+
+  .zone-type-spawn { background: rgba(0, 184, 148, 0.2); color: var(--success); }
+  .zone-type-exit { background: rgba(253, 203, 110, 0.2); color: var(--warning); }
+  .zone-type-collision { background: rgba(225, 112, 85, 0.2); color: var(--danger); }
+  .zone-type-trigger { background: rgba(108, 92, 231, 0.2); color: var(--accent); }
+
+  .zone-del-btn {
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: var(--text-dim);
+    transition: all 0.1s;
+  }
+
+  .zone-del-btn:hover { background: var(--danger); color: white; }
+
+  /* Grid resize */
+  .resize-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .resize-row label {
+    font-size: 12px;
+    color: var(--text-dim);
+    width: 50px;
+  }
+
+  .resize-row input {
+    width: 60px;
+    padding: 4px 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 12px;
+    outline: none;
+  }
+
+  .resize-row input:focus {
+    border-color: var(--accent);
+  }
+
+  /* Properties scrollable area */
+  #properties-scroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* === Bottom Bar === */
+  #bottom-bar {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    gap: 8px;
+  }
+
+  .tool-group {
+    display: flex;
+    gap: 4px;
+  }
+
+  .tool-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .tool-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--accent);
+  }
+
+  .tool-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .separator {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    margin: 0 6px;
+  }
+
+  .toggle-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .toggle-btn:hover {
+    color: var(--text);
+  }
+
+  .toggle-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .spacer { flex: 1; }
+
+  .info-text {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-right: 8px;
+  }
+
+  .btn {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-accent {
+    background: var(--accent);
+    color: white;
+  }
+
+  .btn-accent:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  .btn-success {
+    background: var(--success);
+    color: white;
+  }
+
+  .btn-success:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .btn-outline:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn-sm {
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 4px;
+  }
+
+  /* Status banner */
+  .status-banner {
+    padding: 12px 20px;
+    background: rgba(0, 184, 148, 0.1);
+    border-top: 1px solid rgba(0, 184, 148, 0.3);
+    color: var(--success);
+    font-size: 13px;
+    text-align: center;
+    display: none;
+  }
+
+  .status-banner.visible {
+    display: block;
+  }
+
+  /* Zone name prompt overlay */
+  #zone-prompt {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #zone-prompt.visible {
+    display: flex;
+  }
+
+  .prompt-dialog {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    min-width: 320px;
+  }
+
+  .prompt-dialog h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+
+  .prompt-dialog label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .prompt-dialog input,
+  .prompt-dialog select {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    margin-bottom: 12px;
+  }
+
+  .prompt-dialog input:focus,
+  .prompt-dialog select:focus {
+    border-color: var(--accent);
+  }
+
+  .prompt-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+</style>
+</head>
+<body>
+
+<div id="main">
+  <!-- Left: Tileset Palette -->
+  <div id="palette-panel">
+    <div id="palette-header">
+      <h2>Tileset Palette</h2>
+      <div class="subtitle" id="palette-info">Loading tilesets...</div>
+    </div>
+
+    <div class="tileset-tabs" id="tileset-tabs"></div>
+
+    <div id="recent-section">
+      <h3>Recently Used</h3>
+      <div id="recent-tiles"></div>
+    </div>
+
+    <div id="palette-grid"></div>
+  </div>
+
+  <!-- Center: Scene Canvas -->
+  <div id="canvas-panel">
+    <div id="zoom-controls">
+      <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">-</button>
+      <span id="zoom-level">2x</span>
+      <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+    </div>
+    <div id="canvas-container">
+      <canvas id="scene-canvas"></canvas>
+      <canvas id="grid-overlay"></canvas>
+      <canvas id="zone-overlay"></canvas>
+    </div>
+  </div>
+
+  <!-- Right: Layers & Zones -->
+  <div id="properties-panel">
+    <div id="properties-header">
+      <h2>Layers &amp; Zones</h2>
+    </div>
+
+    <div id="properties-scroll">
+      <!-- Layers -->
+      <div class="prop-section">
+        <h3>Layers</h3>
+        <div id="layer-list"></div>
+        <div class="layer-actions">
+          <button class="btn btn-sm btn-outline" onclick="addLayer('tilelayer')">+ Tile Layer</button>
+          <button class="btn btn-sm btn-outline" onclick="addLayer('objectgroup')">+ Object Layer</button>
+        </div>
+      </div>
+
+      <!-- Zones -->
+      <div class="prop-section">
+        <h3>Zones</h3>
+        <div id="zone-list"></div>
+        <div class="layer-actions">
+          <button class="btn btn-sm btn-outline" onclick="startAddZone()">+ Add Zone</button>
+        </div>
+      </div>
+
+      <!-- Grid Resize -->
+      <div class="prop-section">
+        <h3>Grid Size</h3>
+        <div class="resize-row">
+          <label>Width</label>
+          <input type="number" id="grid-width" min="1" max="500">
+          <label>tiles</label>
+        </div>
+        <div class="resize-row">
+          <label>Height</label>
+          <input type="number" id="grid-height" min="1" max="500">
+          <label>tiles</label>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="resizeGrid()">Resize Grid</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Bar -->
+<div id="bottom-bar">
+  <div class="tool-group">
+    <button class="tool-btn active" data-tool="paint" onclick="setTool('paint')">Paint</button>
+    <button class="tool-btn" data-tool="erase" onclick="setTool('erase')">Erase</button>
+    <button class="tool-btn" data-tool="fill" onclick="setTool('fill')">Fill</button>
+    <button class="tool-btn" data-tool="zone" onclick="setTool('zone')">Zone</button>
+  </div>
+
+  <div class="separator"></div>
+
+  <button class="toggle-btn active" id="grid-toggle" onclick="toggleGrid()">Grid</button>
+
+  <div class="spacer"></div>
+
+  <span class="info-text" id="cursor-info">--</span>
+
+  <button class="btn btn-accent" onclick="exportTiled()">Export Tiled JSON</button>
+  <button class="btn btn-success" id="send-btn" onclick="sendToClaude()">Send to Claude</button>
+</div>
+
+<!-- Status Banner -->
+<div class="status-banner" id="status-banner">
+  Data sent to Claude. You can close this tab.
+</div>
+
+<!-- Zone Name Prompt -->
+<div id="zone-prompt">
+  <div class="prompt-dialog">
+    <h3>New Zone</h3>
+    <label>Name</label>
+    <input type="text" id="zone-name-input" placeholder="e.g. spawn, exit, trigger1">
+    <label>Type</label>
+    <select id="zone-type-input">
+      <option value="collision">Collision</option>
+      <option value="spawn">Spawn</option>
+      <option value="exit">Exit</option>
+      <option value="trigger">Trigger</option>
+    </select>
+    <div class="prompt-actions">
+      <button class="btn btn-sm btn-outline" onclick="cancelZonePrompt()">Cancel</button>
+      <button class="btn btn-sm btn-accent" onclick="confirmZonePrompt()">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== Server-injected Data ======
+var grid = __GRID_CONFIG_PLACEHOLDER__;
+var tileSize = __TILE_SIZE_PLACEHOLDER__;
+var tilesetConfigs = __TILESETS_PLACEHOLDER__;
+var layers = __LAYERS_PLACEHOLDER__;
+var zones = __ZONES_PLACEHOLDER__;
+
+// ====== State ======
+var zoom = 2;
+var activeTool = 'paint';
+var activeLayerIndex = 0;
+var activeTilesetIndex = 0;
+var activeTile = 0; // 0 = eraser / empty
+var showGrid = true;
+var painting = false;
+var zoneDrawing = false;
+var zoneStart = null;
+var zoneCurrent = null;
+var pendingZoneRect = null;
+
+// Tileset images (loaded async)
+var tilesetImages = []; // Image objects, parallel to tilesetConfigs
+var tilesetReady = [];  // booleans
+
+// Recently used tiles: Map of "tilesetIdx:tileIdx" -> count
+var recentTiles = {};
+
+// ====== Canvas Setup ======
+var sceneCanvas = document.getElementById('scene-canvas');
+var sceneCtx = sceneCanvas.getContext('2d');
+var gridCanvas = document.getElementById('grid-overlay');
+var gridCtx = gridCanvas.getContext('2d');
+var zoneCanvas = document.getElementById('zone-overlay');
+var zoneCtx = zoneCanvas.getContext('2d');
+
+sceneCtx.imageSmoothingEnabled = false;
+
+// ====== Init ======
+function init() {
+  document.getElementById('grid-width').value = grid.width;
+  document.getElementById('grid-height').value = grid.height;
+
+  // Ensure layers have valid data arrays
+  for (var i = 0; i < layers.length; i++) {
+    if (layers[i].type === 'tilelayer' && (!layers[i].data || layers[i].data.length !== grid.width * grid.height)) {
+      var newData = new Array(grid.width * grid.height).fill(0);
+      if (layers[i].data) {
+        for (var j = 0; j < Math.min(layers[i].data.length, newData.length); j++) {
+          newData[j] = layers[i].data[j];
+        }
+      }
+      layers[i].data = newData;
+    }
+    if (layers[i].visible === undefined) layers[i].visible = true;
+  }
+
+  // Load tileset images
+  loadTilesets();
+
+  // Build layer/zone UI
+  renderLayers();
+  renderZones();
+  buildTilesetTabs();
+
+  // Size canvases
+  resizeCanvases();
+
+  // Set up mouse handlers on canvas panel
+  setupCanvasEvents();
+}
+
+// ====== Tileset Loading ======
+function loadTilesets() {
+  tilesetImages = [];
+  tilesetReady = [];
+  var loadCount = 0;
+
+  for (var i = 0; i < tilesetConfigs.length; i++) {
+    (function(idx) {
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      tilesetImages[idx] = img;
+      tilesetReady[idx] = false;
+
+      img.onload = function() {
+        tilesetReady[idx] = true;
+        loadCount++;
+        if (loadCount === tilesetConfigs.length) {
+          document.getElementById('palette-info').textContent =
+            tilesetConfigs.length + ' tileset(s) loaded';
+        }
+        buildPaletteGrid(activeTilesetIndex);
+        renderScene();
+      };
+
+      img.onerror = function() {
+        tilesetReady[idx] = false;
+        loadCount++;
+        console.error('Failed to load tileset:', tilesetConfigs[idx].name);
+      };
+
+      img.src = '/designer/tileset?path=' + encodeURIComponent(tilesetConfigs[idx].image_path);
+    })(i);
+  }
+
+  if (tilesetConfigs.length === 0) {
+    document.getElementById('palette-info').textContent = 'No tilesets loaded';
+  }
+}
+
+// ====== Tileset Tabs ======
+function buildTilesetTabs() {
+  var container = document.getElementById('tileset-tabs');
+  container.innerHTML = '';
+  for (var i = 0; i < tilesetConfigs.length; i++) {
+    var btn = document.createElement('button');
+    btn.className = 'tileset-tab' + (i === activeTilesetIndex ? ' active' : '');
+    btn.textContent = tilesetConfigs[i].name;
+    btn.dataset.idx = i;
+    btn.addEventListener('click', function() {
+      activeTilesetIndex = parseInt(this.dataset.idx);
+      document.querySelectorAll('.tileset-tab').forEach(function(t) { t.classList.remove('active'); });
+      this.classList.add('active');
+      buildPaletteGrid(activeTilesetIndex);
+    });
+    container.appendChild(btn);
+  }
+}
+
+// ====== Palette Grid ======
+function buildPaletteGrid(tsIdx) {
+  var container = document.getElementById('palette-grid');
+  container.innerHTML = '';
+
+  if (!tilesetReady[tsIdx]) return;
+
+  var ts = tilesetConfigs[tsIdx];
+  var img = tilesetImages[tsIdx];
+  var tw = ts.tile_width;
+  var th = ts.tile_height;
+  var margin = ts.margin || 0;
+  var spacing = ts.spacing || 0;
+  var cols = Math.floor((img.width - margin + spacing) / (tw + spacing));
+  var rows = Math.floor((img.height - margin + spacing) / (th + spacing));
+
+  var palScale = 2;
+
+  for (var r = 0; r < rows; r++) {
+    for (var c = 0; c < cols; c++) {
+      var tileIdx = r * cols + c;
+      var sx = margin + c * (tw + spacing);
+      var sy = margin + r * (th + spacing);
+
+      var canvas = document.createElement('canvas');
+      canvas.width = tw * palScale;
+      canvas.height = th * palScale;
+      canvas.className = 'palette-tile';
+      canvas.dataset.tsIdx = tsIdx;
+      canvas.dataset.tileIdx = tileIdx;
+      canvas.title = ts.name + ' #' + tileIdx;
+
+      var ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, sx, sy, tw, th, 0, 0, tw * palScale, th * palScale);
+
+      // Compute global tile ID (firstgid + tileIdx)
+      var firstgid = getFirstGid(tsIdx);
+      var globalId = firstgid + tileIdx;
+      canvas.dataset.globalId = globalId;
+
+      if (globalId === activeTile) {
+        canvas.classList.add('selected');
+      }
+
+      canvas.addEventListener('click', function() {
+        var gid = parseInt(this.dataset.globalId);
+        selectTile(gid, parseInt(this.dataset.tsIdx));
+      });
+
+      container.appendChild(canvas);
+    }
+  }
+}
+
+function getFirstGid(tsIdx) {
+  var gid = 1;
+  for (var i = 0; i < tsIdx; i++) {
+    if (tilesetReady[i]) {
+      var ts = tilesetConfigs[i];
+      var img = tilesetImages[i];
+      var cols = Math.floor((img.width - (ts.margin || 0) + (ts.spacing || 0)) / (ts.tile_width + (ts.spacing || 0)));
+      var rows = Math.floor((img.height - (ts.margin || 0) + (ts.spacing || 0)) / (ts.tile_height + (ts.spacing || 0)));
+      gid += cols * rows;
+    }
+  }
+  return gid;
+}
+
+function selectTile(globalId, tsIdx) {
+  activeTile = globalId;
+  if (tsIdx !== undefined && tsIdx !== activeTilesetIndex) {
+    activeTilesetIndex = tsIdx;
+    document.querySelectorAll('.tileset-tab').forEach(function(t) { t.classList.remove('active'); });
+    var tab = document.querySelector('.tileset-tab[data-idx="' + tsIdx + '"]');
+    if (tab) tab.classList.add('active');
+    buildPaletteGrid(tsIdx);
+  }
+  // Update selection highlight
+  document.querySelectorAll('.palette-tile.selected').forEach(function(t) { t.classList.remove('selected'); });
+  document.querySelectorAll('.palette-tile[data-global-id="' + globalId + '"]').forEach(function(t) {
+    t.classList.add('selected');
+  });
+  document.querySelectorAll('.recent-tile.selected').forEach(function(t) { t.classList.remove('selected'); });
+  document.querySelectorAll('.recent-tile[data-global-id="' + globalId + '"]').forEach(function(t) {
+    t.classList.add('selected');
+  });
+
+  // Auto-switch to paint tool
+  if (activeTool !== 'paint' && activeTool !== 'fill') {
+    setTool('paint');
+  }
+}
+
+// ====== Recently Used ======
+function trackRecentTile(globalId) {
+  if (globalId === 0) return;
+  var key = String(globalId);
+  recentTiles[key] = (recentTiles[key] || 0) + 1;
+  renderRecentTiles();
+}
+
+function renderRecentTiles() {
+  var container = document.getElementById('recent-tiles');
+  container.innerHTML = '';
+
+  // Sort by count descending
+  var entries = Object.keys(recentTiles).map(function(k) {
+    return { globalId: parseInt(k), count: recentTiles[k] };
+  });
+  entries.sort(function(a, b) { return b.count - a.count; });
+
+  // Show top 16
+  var limit = Math.min(entries.length, 16);
+  for (var i = 0; i < limit; i++) {
+    var gid = entries[i].globalId;
+    var info = getTileInfo(gid);
+    if (!info) continue;
+
+    var canvas = document.createElement('canvas');
+    canvas.width = info.tw * 2;
+    canvas.height = info.th * 2;
+    canvas.className = 'recent-tile' + (gid === activeTile ? ' selected' : '');
+    canvas.dataset.globalId = gid;
+    canvas.title = info.tsName + ' #' + info.localIdx + ' (used ' + entries[i].count + 'x)';
+
+    var ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(info.img, info.sx, info.sy, info.tw, info.th, 0, 0, info.tw * 2, info.th * 2);
+
+    canvas.addEventListener('click', function() {
+      selectTile(parseInt(this.dataset.globalId));
+    });
+
+    container.appendChild(canvas);
+  }
+}
+
+// ====== Tile Info Lookup ======
+function getTileInfo(globalId) {
+  if (globalId <= 0) return null;
+
+  var gid = 1;
+  for (var i = 0; i < tilesetConfigs.length; i++) {
+    if (!tilesetReady[i]) continue;
+    var ts = tilesetConfigs[i];
+    var img = tilesetImages[i];
+    var margin = ts.margin || 0;
+    var spacing = ts.spacing || 0;
+    var cols = Math.floor((img.width - margin + spacing) / (ts.tile_width + spacing));
+    var rows = Math.floor((img.height - margin + spacing) / (ts.tile_height + spacing));
+    var count = cols * rows;
+
+    if (globalId >= gid && globalId < gid + count) {
+      var localIdx = globalId - gid;
+      var r = Math.floor(localIdx / cols);
+      var c = localIdx % cols;
+      var sx = margin + c * (ts.tile_width + spacing);
+      var sy = margin + r * (ts.tile_height + spacing);
+      return {
+        tsIdx: i,
+        tsName: ts.name,
+        localIdx: localIdx,
+        img: img,
+        sx: sx, sy: sy,
+        tw: ts.tile_width, th: ts.tile_height,
+        cols: cols, rows: rows
+      };
+    }
+    gid += count;
+  }
+  return null;
+}
+
+// ====== Canvas Sizing ======
+function resizeCanvases() {
+  var w = grid.width * tileSize.width * zoom;
+  var h = grid.height * tileSize.height * zoom;
+
+  sceneCanvas.width = w;
+  sceneCanvas.height = h;
+  gridCanvas.width = w;
+  gridCanvas.height = h;
+  zoneCanvas.width = w;
+  zoneCanvas.height = h;
+
+  sceneCtx.imageSmoothingEnabled = false;
+}
+
+// ====== Scene Rendering ======
+function renderScene() {
+  sceneCtx.clearRect(0, 0, sceneCanvas.width, sceneCanvas.height);
+
+  // Fill background with a subtle checker pattern
+  var cw = tileSize.width * zoom;
+  var ch = tileSize.height * zoom;
+  for (var r = 0; r < grid.height; r++) {
+    for (var c = 0; c < grid.width; c++) {
+      sceneCtx.fillStyle = (r + c) % 2 === 0 ? '#12141f' : '#0e1019';
+      sceneCtx.fillRect(c * cw, r * ch, cw, ch);
+    }
+  }
+
+  // Render tile layers bottom-to-top
+  for (var li = 0; li < layers.length; li++) {
+    var layer = layers[li];
+    if (!layer.visible || layer.type !== 'tilelayer') continue;
+    if (!layer.data) continue;
+
+    for (var idx = 0; idx < layer.data.length; idx++) {
+      var gid = layer.data[idx];
+      if (gid <= 0) continue;
+
+      var info = getTileInfo(gid);
+      if (!info) continue;
+
+      var col = idx % grid.width;
+      var row = Math.floor(idx / grid.width);
+
+      sceneCtx.drawImage(
+        info.img,
+        info.sx, info.sy, info.tw, info.th,
+        col * cw, row * ch, cw, ch
+      );
+    }
+  }
+
+  renderGridOverlay();
+  renderZoneOverlay();
+}
+
+function renderGridOverlay() {
+  gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+  if (!showGrid) return;
+
+  var cw = tileSize.width * zoom;
+  var ch = tileSize.height * zoom;
+
+  gridCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  gridCtx.lineWidth = 1;
+
+  for (var c = 0; c <= grid.width; c++) {
+    var x = c * cw + 0.5;
+    gridCtx.beginPath();
+    gridCtx.moveTo(x, 0);
+    gridCtx.lineTo(x, gridCanvas.height);
+    gridCtx.stroke();
+  }
+
+  for (var r = 0; r <= grid.height; r++) {
+    var y = r * ch + 0.5;
+    gridCtx.beginPath();
+    gridCtx.moveTo(0, y);
+    gridCtx.lineTo(gridCanvas.width, y);
+    gridCtx.stroke();
+  }
+}
+
+function renderZoneOverlay() {
+  zoneCtx.clearRect(0, 0, zoneCanvas.width, zoneCanvas.height);
+
+  var colors = {
+    collision: 'rgba(225, 112, 85, 0.35)',
+    spawn: 'rgba(0, 184, 148, 0.35)',
+    exit: 'rgba(253, 203, 110, 0.35)',
+    trigger: 'rgba(108, 92, 231, 0.35)'
+  };
+
+  var borderColors = {
+    collision: '#e17055',
+    spawn: '#00b894',
+    exit: '#fdcb6e',
+    trigger: '#6c5ce7'
+  };
+
+  for (var i = 0; i < zones.length; i++) {
+    var z = zones[i];
+    var zType = z.type || 'collision';
+    var x = z.x * zoom;
+    var y = z.y * zoom;
+    var w = z.width * zoom;
+    var h = z.height * zoom;
+
+    zoneCtx.fillStyle = colors[zType] || colors.collision;
+    zoneCtx.fillRect(x, y, w, h);
+
+    zoneCtx.strokeStyle = borderColors[zType] || borderColors.collision;
+    zoneCtx.lineWidth = 2;
+    zoneCtx.strokeRect(x, y, w, h);
+
+    // Label
+    zoneCtx.fillStyle = borderColors[zType] || borderColors.collision;
+    zoneCtx.font = '11px sans-serif';
+    zoneCtx.fillText(z.name || zType, x + 3, y + 13);
+  }
+
+  // Draw pending zone rectangle
+  if (zoneDrawing && zoneStart && zoneCurrent) {
+    var rx = Math.min(zoneStart.x, zoneCurrent.x) * zoom;
+    var ry = Math.min(zoneStart.y, zoneCurrent.y) * zoom;
+    var rw = Math.abs(zoneCurrent.x - zoneStart.x) * zoom;
+    var rh = Math.abs(zoneCurrent.y - zoneStart.y) * zoom;
+
+    zoneCtx.fillStyle = 'rgba(108, 92, 231, 0.2)';
+    zoneCtx.fillRect(rx, ry, rw, rh);
+    zoneCtx.strokeStyle = '#6c5ce7';
+    zoneCtx.lineWidth = 2;
+    zoneCtx.setLineDash([5, 3]);
+    zoneCtx.strokeRect(rx, ry, rw, rh);
+    zoneCtx.setLineDash([]);
+  }
+}
+
+// ====== Canvas Mouse Events ======
+function setupCanvasEvents() {
+  var container = document.getElementById('canvas-container');
+
+  container.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    var pos = getCanvasPos(e);
+    if (!pos) return;
+
+    if (activeTool === 'zone') {
+      zoneDrawing = true;
+      // Snap to pixel (not tile)
+      zoneStart = { x: pos.col * tileSize.width, y: pos.row * tileSize.height };
+      zoneCurrent = {
+        x: (pos.col + 1) * tileSize.width,
+        y: (pos.row + 1) * tileSize.height
+      };
+      renderZoneOverlay();
+    } else if (activeTool === 'fill') {
+      floodFill(pos.row, pos.col);
+    } else {
+      painting = true;
+      applyBrush(pos.row, pos.col);
+    }
+  });
+
+  container.addEventListener('mousemove', function(e) {
+    var pos = getCanvasPos(e);
+    if (pos) {
+      document.getElementById('cursor-info').textContent =
+        'Col: ' + pos.col + ' Row: ' + pos.row +
+        ' | Layer: ' + (layers[activeLayerIndex] ? layers[activeLayerIndex].name : '--');
+    }
+
+    if (zoneDrawing && zoneStart) {
+      if (!pos) return;
+      zoneCurrent = {
+        x: (pos.col + 1) * tileSize.width,
+        y: (pos.row + 1) * tileSize.height
+      };
+      renderZoneOverlay();
+    }
+
+    if (painting && pos) {
+      applyBrush(pos.row, pos.col);
+    }
+  });
+
+  container.addEventListener('mouseup', function(e) {
+    if (zoneDrawing && zoneStart && zoneCurrent) {
+      zoneDrawing = false;
+      var x1 = Math.min(zoneStart.x, zoneCurrent.x);
+      var y1 = Math.min(zoneStart.y, zoneCurrent.y);
+      var x2 = Math.max(zoneStart.x, zoneCurrent.x);
+      var y2 = Math.max(zoneStart.y, zoneCurrent.y);
+      if (x2 - x1 > 0 && y2 - y1 > 0) {
+        pendingZoneRect = { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+        showZonePrompt();
+      }
+      zoneStart = null;
+      zoneCurrent = null;
+      renderZoneOverlay();
+    }
+    painting = false;
+  });
+
+  container.addEventListener('mouseleave', function() {
+    painting = false;
+  });
+}
+
+function getCanvasPos(e) {
+  var rect = sceneCanvas.getBoundingClientRect();
+  var x = e.clientX - rect.left;
+  var y = e.clientY - rect.top;
+  var cw = tileSize.width * zoom;
+  var ch = tileSize.height * zoom;
+  var col = Math.floor(x / cw);
+  var row = Math.floor(y / ch);
+  if (col < 0 || col >= grid.width || row < 0 || row >= grid.height) return null;
+  return { col: col, row: row };
+}
+
+// ====== Paint / Erase ======
+function applyBrush(row, col) {
+  var layer = layers[activeLayerIndex];
+  if (!layer || layer.type !== 'tilelayer') return;
+
+  var idx = row * grid.width + col;
+  var newVal = activeTool === 'erase' ? 0 : activeTile;
+
+  if (layer.data[idx] === newVal) return;
+
+  layer.data[idx] = newVal;
+  if (newVal > 0) trackRecentTile(newVal);
+  renderScene();
+}
+
+// ====== Flood Fill ======
+function floodFill(startRow, startCol) {
+  var layer = layers[activeLayerIndex];
+  if (!layer || layer.type !== 'tilelayer') return;
+
+  var target = layer.data[startRow * grid.width + startCol];
+  var replacement = activeTile;
+  if (target === replacement) return;
+
+  var stack = [[startRow, startCol]];
+  var visited = {};
+
+  while (stack.length > 0) {
+    var cell = stack.pop();
+    var r = cell[0];
+    var c = cell[1];
+    var key = r + ',' + c;
+
+    if (visited[key]) continue;
+    if (r < 0 || r >= grid.height || c < 0 || c >= grid.width) continue;
+
+    var idx = r * grid.width + c;
+    if (layer.data[idx] !== target) continue;
+
+    visited[key] = true;
+    layer.data[idx] = replacement;
+
+    stack.push([r - 1, c]);
+    stack.push([r + 1, c]);
+    stack.push([r, c - 1]);
+    stack.push([r, c + 1]);
+  }
+
+  if (replacement > 0) trackRecentTile(replacement);
+  renderScene();
+}
+
+// ====== Tools ======
+function setTool(tool) {
+  activeTool = tool;
+  document.querySelectorAll('.tool-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.tool === tool);
+  });
+  // Change cursor
+  var container = document.getElementById('canvas-container');
+  if (tool === 'zone') {
+    container.style.cursor = 'crosshair';
+  } else if (tool === 'fill') {
+    container.style.cursor = 'cell';
+  } else if (tool === 'erase') {
+    container.style.cursor = 'not-allowed';
+  } else {
+    container.style.cursor = 'crosshair';
+  }
+}
+
+// ====== Zoom ======
+function zoomIn() {
+  if (zoom >= 6) return;
+  zoom++;
+  document.getElementById('zoom-level').textContent = zoom + 'x';
+  resizeCanvases();
+  renderScene();
+}
+
+function zoomOut() {
+  if (zoom <= 1) return;
+  zoom--;
+  document.getElementById('zoom-level').textContent = zoom + 'x';
+  resizeCanvases();
+  renderScene();
+}
+
+// ====== Grid Toggle ======
+function toggleGrid() {
+  showGrid = !showGrid;
+  document.getElementById('grid-toggle').classList.toggle('active', showGrid);
+  renderGridOverlay();
+}
+
+// ====== Layers ======
+function renderLayers() {
+  var container = document.getElementById('layer-list');
+  container.innerHTML = '';
+
+  for (var i = 0; i < layers.length; i++) {
+    (function(idx) {
+      var layer = layers[idx];
+      var div = document.createElement('div');
+      div.className = 'layer-item' + (idx === activeLayerIndex ? ' active' : '');
+      div.addEventListener('click', function(e) {
+        if (e.target.closest('.layer-vis-btn') || e.target.closest('.layer-del-btn') || e.target.closest('.layer-move-btn')) return;
+        activeLayerIndex = idx;
+        renderLayers();
+      });
+
+      // Move up
+      var upBtn = document.createElement('button');
+      upBtn.className = 'layer-move-btn';
+      upBtn.innerHTML = '&#9650;';
+      upBtn.title = 'Move up';
+      upBtn.disabled = idx === 0;
+      upBtn.addEventListener('click', function() { moveLayer(idx, -1); });
+
+      // Move down
+      var downBtn = document.createElement('button');
+      downBtn.className = 'layer-move-btn';
+      downBtn.innerHTML = '&#9660;';
+      downBtn.title = 'Move down';
+      downBtn.disabled = idx === layers.length - 1;
+      downBtn.addEventListener('click', function() { moveLayer(idx, 1); });
+
+      var name = document.createElement('span');
+      name.className = 'layer-name';
+      name.textContent = layer.name;
+
+      var type = document.createElement('span');
+      type.className = 'layer-type';
+      type.textContent = layer.type === 'tilelayer' ? 'tile' : 'obj';
+
+      var visBtn = document.createElement('button');
+      visBtn.className = 'layer-vis-btn' + (layer.visible ? '' : ' hidden');
+      visBtn.innerHTML = layer.visible ? '&#128065;' : '&#128065;';
+      visBtn.title = layer.visible ? 'Hide' : 'Show';
+      visBtn.addEventListener('click', function() {
+        layer.visible = !layer.visible;
+        renderLayers();
+        renderScene();
+      });
+
+      var delBtn = document.createElement('button');
+      delBtn.className = 'layer-del-btn';
+      delBtn.innerHTML = '&#215;';
+      delBtn.title = 'Delete layer';
+      delBtn.addEventListener('click', function() {
+        if (layers.length <= 1) return;
+        layers.splice(idx, 1);
+        if (activeLayerIndex >= layers.length) activeLayerIndex = layers.length - 1;
+        renderLayers();
+        renderScene();
+      });
+
+      div.appendChild(upBtn);
+      div.appendChild(downBtn);
+      div.appendChild(name);
+      div.appendChild(type);
+      div.appendChild(visBtn);
+      div.appendChild(delBtn);
+      container.appendChild(div);
+    })(i);
+  }
+}
+
+function moveLayer(idx, dir) {
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= layers.length) return;
+  var temp = layers[idx];
+  layers[idx] = layers[newIdx];
+  layers[newIdx] = temp;
+  if (activeLayerIndex === idx) activeLayerIndex = newIdx;
+  else if (activeLayerIndex === newIdx) activeLayerIndex = idx;
+  renderLayers();
+  renderScene();
+}
+
+function addLayer(type) {
+  var name = type === 'tilelayer'
+    ? 'Layer ' + (layers.length + 1)
+    : 'Objects ' + (layers.length + 1);
+
+  var layer = {
+    name: name,
+    type: type,
+    visible: true
+  };
+
+  if (type === 'tilelayer') {
+    layer.data = new Array(grid.width * grid.height).fill(0);
+  } else {
+    layer.objects = [];
+  }
+
+  layers.push(layer);
+  activeLayerIndex = layers.length - 1;
+  renderLayers();
+
+  // Allow inline rename
+  var nameEl = document.querySelector('.layer-item.active .layer-name');
+  if (nameEl) {
+    nameEl.contentEditable = true;
+    nameEl.focus();
+    var range = document.createRange();
+    range.selectNodeContents(nameEl);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    nameEl.addEventListener('blur', function() {
+      this.contentEditable = false;
+      layers[activeLayerIndex].name = this.textContent.trim() || name;
+    }, { once: true });
+    nameEl.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
+    });
+  }
+}
+
+// ====== Zones ======
+function renderZones() {
+  var container = document.getElementById('zone-list');
+  container.innerHTML = '';
+
+  for (var i = 0; i < zones.length; i++) {
+    (function(idx) {
+      var z = zones[idx];
+      var div = document.createElement('div');
+      div.className = 'zone-item';
+
+      var type = document.createElement('span');
+      type.className = 'zone-type zone-type-' + (z.type || 'collision');
+      type.textContent = z.type || 'collision';
+
+      var name = document.createElement('span');
+      name.className = 'zone-name';
+      name.textContent = z.name + ' (' + z.x + ',' + z.y + ' ' + z.width + 'x' + z.height + ')';
+
+      var delBtn = document.createElement('button');
+      delBtn.className = 'zone-del-btn';
+      delBtn.innerHTML = '&#215;';
+      delBtn.title = 'Delete zone';
+      delBtn.addEventListener('click', function() {
+        zones.splice(idx, 1);
+        renderZones();
+        renderZoneOverlay();
+      });
+
+      div.appendChild(type);
+      div.appendChild(name);
+      div.appendChild(delBtn);
+      container.appendChild(div);
+    })(i);
+  }
+}
+
+function startAddZone() {
+  setTool('zone');
+}
+
+function showZonePrompt() {
+  document.getElementById('zone-prompt').classList.add('visible');
+  document.getElementById('zone-name-input').value = '';
+  document.getElementById('zone-name-input').focus();
+}
+
+function cancelZonePrompt() {
+  document.getElementById('zone-prompt').classList.remove('visible');
+  pendingZoneRect = null;
+}
+
+function confirmZonePrompt() {
+  var name = document.getElementById('zone-name-input').value.trim();
+  var type = document.getElementById('zone-type-input').value;
+  if (!name) name = type + '_' + (zones.length + 1);
+
+  if (pendingZoneRect) {
+    zones.push({
+      name: name,
+      type: type,
+      x: pendingZoneRect.x,
+      y: pendingZoneRect.y,
+      width: pendingZoneRect.width,
+      height: pendingZoneRect.height
+    });
+    pendingZoneRect = null;
+  }
+
+  document.getElementById('zone-prompt').classList.remove('visible');
+  renderZones();
+  renderZoneOverlay();
+}
+
+// Allow Enter to confirm zone prompt
+document.getElementById('zone-name-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); confirmZonePrompt(); }
+  if (e.key === 'Escape') { cancelZonePrompt(); }
+});
+
+// ====== Grid Resize ======
+function resizeGrid() {
+  var newW = parseInt(document.getElementById('grid-width').value);
+  var newH = parseInt(document.getElementById('grid-height').value);
+  if (isNaN(newW) || isNaN(newH) || newW < 1 || newH < 1) return;
+
+  var oldW = grid.width;
+  var oldH = grid.height;
+
+  for (var i = 0; i < layers.length; i++) {
+    if (layers[i].type !== 'tilelayer' || !layers[i].data) continue;
+
+    var newData = new Array(newW * newH).fill(0);
+    var copyW = Math.min(oldW, newW);
+    var copyH = Math.min(oldH, newH);
+
+    for (var r = 0; r < copyH; r++) {
+      for (var c = 0; c < copyW; c++) {
+        newData[r * newW + c] = layers[i].data[r * oldW + c];
+      }
+    }
+
+    layers[i].data = newData;
+  }
+
+  grid.width = newW;
+  grid.height = newH;
+
+  resizeCanvases();
+  renderScene();
+}
+
+// ====== Send to Claude ======
+function sendToClaude() {
+  var payload = {
+    grid: grid,
+    tile_size: tileSize,
+    tilesets: tilesetConfigs,
+    layers: layers.map(function(l) {
+      var out = { name: l.name, type: l.type };
+      if (l.type === 'tilelayer') out.data = Array.from(l.data);
+      if (l.type === 'objectgroup') out.objects = l.objects || [];
+      return out;
+    }),
+    zones: zones
+  };
+
+  fetch('/api/designer/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function(resp) {
+    if (resp.ok) {
+      document.getElementById('status-banner').classList.add('visible');
+      document.getElementById('send-btn').disabled = true;
+      document.getElementById('send-btn').textContent = 'Sent!';
+    }
+  }).catch(function() {
+    document.getElementById('send-btn').textContent = 'Error - try again';
+  });
+}
+
+// ====== Export Tiled JSON ======
+function exportTiled() {
+  window.open('/api/designer/export', '_blank');
+}
+
+// ====== Keyboard Shortcuts ======
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.contentEditable === 'true') return;
+
+  switch (e.key.toLowerCase()) {
+    case 'b': setTool('paint'); break;
+    case 'e': setTool('erase'); break;
+    case 'g': setTool('fill'); break;
+    case 'z': setTool('zone'); break;
+    case '=': case '+': e.preventDefault(); zoomIn(); break;
+    case '-': e.preventDefault(); zoomOut(); break;
+    case 'h': toggleGrid(); break;
+  }
+});
+
+// ====== Start ======
+init();
+</script>
+</body>
+</html>

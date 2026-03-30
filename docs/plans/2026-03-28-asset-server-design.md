@@ -63,7 +63,7 @@ The `failed` array preserves everything Claude needs to retry with `curl` — no
 
 ## SQLite Schema
 
-Location: `~/.phaser-asset-finder/assets.db`
+Location: `~/.phaser-assets/assets.db`
 
 ```sql
 CREATE TABLE sessions (
@@ -111,5 +111,5 @@ The existing `asset-preview.html` template keeps its card grid, filters, and sel
 
 - Python stdlib only (`http.server`, `sqlite3`, `urllib.request`) — zero dependencies
 - Single `server.py` file
-- DB at `~/.phaser-asset-finder/assets.db`
-- Template stays at `skills/phaser-asset-finder/assets/asset-preview.html`
+- DB at `~/.phaser-assets/assets.db`
+- Template stays at `skills/asset-finder/assets/asset-preview.html`

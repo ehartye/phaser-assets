@@ -21,7 +21,7 @@ Add this to your Claude Code settings (`~/.claude/settings.json`):
   "plugins": {
     "marketplaces": [
       {
-        "url": "file:///C:/Users/ehart/anika-projects/phaser-assets/marketplace.json"
+        "url": "file:///C:/Users/ehart/repos/phaser-assets/marketplace.json"
       }
     ]
   }

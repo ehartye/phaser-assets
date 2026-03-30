@@ -4,7 +4,7 @@
 
 **Goal:** Replace the temp-file preview flow with a local Python web server that serves the preview UI, downloads assets directly into the project, and tracks everything in SQLite.
 
-**Architecture:** Single `server.py` using Python stdlib (`http.server`, `sqlite3`, `urllib.request`). Server starts on demand, serves preview HTML, handles asset downloads, exposes status/results API, shuts down when Claude is done. SQLite at `~/.phaser-asset-finder/assets.db` persists asset history across sessions.
+**Architecture:** Single `server.py` using Python stdlib (`http.server`, `sqlite3`, `urllib.request`). Server starts on demand, serves preview HTML, handles asset downloads, exposes status/results API, shuts down when Claude is done. SQLite at `~/.phaser-assets/assets.db` persists asset history across sessions.
 
 **Tech Stack:** Python 3 stdlib only
 
@@ -34,7 +34,7 @@ import io
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
-DB_DIR = Path.home() / ".phaser-asset-finder"
+DB_DIR = Path.home() / ".phaser-assets"
 DB_PATH = DB_DIR / "assets.db"
 
 
@@ -72,7 +72,7 @@ def init_db():
 
 Run: `python scripts/server.py 2>&1 || true` (will fail since there's no entry point yet, but import should work)
 Then: `python -c "import sys; sys.path.insert(0,'scripts'); from server import init_db; init_db(); print('OK')"`
-Expected: `OK` and `~/.phaser-asset-finder/assets.db` exists
+Expected: `OK` and `~/.phaser-assets/assets.db` exists
 
 **Step 3: Commit**
 
@@ -280,7 +280,7 @@ git commit -m "feat: implement /health, /start, /shutdown routes with DB recordi
     def handle_preview(self):
         # Read template relative to this script
         script_dir = Path(__file__).resolve().parent
-        template_path = script_dir / ".." / "skills" / "phaser-asset-finder" / "assets" / "asset-preview.html"
+        template_path = script_dir / ".." / "skills" / "asset-finder" / "assets" / "asset-preview.html"
 
         if not template_path.exists():
             self.send_error(500, "Template not found")
@@ -565,7 +565,7 @@ git commit -m "feat: add CLI entry point with auto port selection and browser la
 ### Task 9: Update asset-preview.html for server-backed downloads
 
 **Files:**
-- Modify: `skills/phaser-asset-finder/assets/asset-preview.html`
+- Modify: `skills/asset-finder/assets/asset-preview.html`
 
 **Step 1: Replace the `exportSelections()` function and add progress states**
 
@@ -595,7 +595,7 @@ Start server, POST /start with test data, open `localhost:PORT`, click "Download
 **Step 3: Commit**
 
 ```bash
-git add skills/phaser-asset-finder/assets/asset-preview.html
+git add skills/asset-finder/assets/asset-preview.html
 git commit -m "feat: update preview HTML to use server API for downloads with progress UI"
 ```
 
@@ -604,7 +604,7 @@ git commit -m "feat: update preview HTML to use server API for downloads with pr
 ### Task 10: Update SKILL.md for server flow
 
 **Files:**
-- Modify: `skills/phaser-asset-finder/SKILL.md`
+- Modify: `skills/asset-finder/SKILL.md`
 
 **Step 1: Replace Step 3 (Show the Preview UI) with server-based flow**
 
@@ -664,7 +664,7 @@ Change the Phaser code generation step to reference `path` from the `/api/result
 **Step 4: Commit**
 
 ```bash
-git add skills/phaser-asset-finder/SKILL.md
+git add skills/asset-finder/SKILL.md
 git commit -m "feat: update SKILL.md for server-based asset preview and download flow"
 ```
 
@@ -731,7 +731,7 @@ Verify downloaded array has the asset with a `path` field, or failed array has `
 ```bash
 python -c "
 import sqlite3
-conn = sqlite3.connect(str(__import__('pathlib').Path.home() / '.phaser-asset-finder' / 'assets.db'))
+conn = sqlite3.connect(str(__import__('pathlib').Path.home() / '.phaser-assets' / 'assets.db'))
 for row in conn.execute('SELECT asset_id, status, local_path, error FROM assets'):
     print(row)
 "

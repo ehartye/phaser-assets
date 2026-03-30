@@ -84,6 +84,26 @@ def _download_one(asset, session):
         return False, None, "no sourceUrl"
     dest_dir = _dest_dir_for_asset(asset, session)
     os.makedirs(dest_dir, exist_ok=True)
+
+    # Delegate itch.io URLs to the Playwright-based downloader
+    if "itch.io" in url:
+        try:
+            from routes.itch_io import _get_browser_context, _new_page, _download_from_itch
+            ctx = _get_browser_context()
+            page = _new_page(ctx)
+            try:
+                saved, error = _download_from_itch(page, url, dest_dir)
+            finally:
+                page.close()
+            if saved:
+                return True, saved[0]["path"], error
+            return False, None, error or "no files downloaded"
+        except ImportError:
+            return False, None, "itch.io downloads require playwright"
+        except Exception as exc:
+            return False, None, str(exc)
+
+    # Standard urllib download for non-itch.io URLs
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "PhaserAssetFinder/1.0"})
         with urllib.request.urlopen(req, timeout=60) as resp:

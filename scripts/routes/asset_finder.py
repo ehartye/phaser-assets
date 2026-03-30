@@ -72,9 +72,16 @@ def _dest_dir_for_asset(asset, session):
         base_key, sub = mapping
         base = structure.get(base_key, f"assets/{base_key}")
         if sub:
-            return os.path.join(session.project_path, base, sub)
-        return os.path.join(session.project_path, base)
-    return os.path.join(session.project_path, structure.get("images", "assets/images"))
+            dest = os.path.join(session.project_path, base, sub)
+        else:
+            dest = os.path.join(session.project_path, base)
+    else:
+        dest = os.path.join(session.project_path, structure.get("images", "assets/images"))
+    # Separate each asset into its own subfolder by ID
+    asset_id = asset.get("id", "")
+    if asset_id:
+        dest = os.path.join(dest, asset_id)
+    return dest
 
 
 def _download_one(asset, session):

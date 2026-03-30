@@ -10,6 +10,7 @@ ROUTES = {
     "GET": {},
     "POST": {
         "/api/itch/search":   "handle_itch_search",
+        "/api/itch/start":    "handle_itch_start",
         "/api/itch/details":  "handle_itch_details",
         "/api/itch/download": "handle_itch_download",
     },
@@ -370,6 +371,75 @@ class ItchIoRoutes:
             self.send_json({"url": url, "count": len(results), "assets": results})
         except Exception as exc:
             self.send_json({"error": str(exc)}, 500)
+
+    def handle_itch_start(self):
+        """Search itch.io and create a preview session in one call."""
+        import secrets
+        from datetime import datetime, timezone
+        from server import session, get_db
+
+        body = self.read_body()
+        tags = body.get("tags", [])
+        sort = body.get("sort")
+        query = body.get("query")
+        max_results = min(body.get("max_results", 30), 60)
+        project_path = body.get("project_path", "")
+        url = _build_search_url(tags=tags, sort=sort, query=query)
+
+        try:
+            results = _run_on_pw(_pw_search, url, max_results)
+        except Exception as exc:
+            self.send_json({"error": str(exc)}, 500)
+            return
+
+        # Convert search results to asset format for the preview session
+        assets = []
+        for r in results:
+            slug = r["url"].rstrip("/").rsplit("/", 1)[-1] if r["url"] else ""
+            assets.append({
+                "id": slug or r["name"].lower().replace(" ", "-")[:40],
+                "name": r["name"],
+                "source": "itch.io",
+                "sourceUrl": r["url"],
+                "previewUrl": r["previewUrl"],
+                "license": "Check itch.io page",
+                "type": "sprite",
+                "description": f"By {r['creator']}" if r.get("creator") else "",
+                "formats": ["PNG"],
+                "tags": tags,
+            })
+
+        # Create session
+        session.reset()
+        session.session_id = secrets.token_hex(4)
+        session.assets = assets
+        session.project_path = project_path
+        search_context = f"itch.io: {query or ''} tags={','.join(tags)}"
+        session.search_context = search_context
+
+        now = datetime.now(timezone.utc).isoformat()
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO sessions (id, project_path, search_context, created_at) VALUES (?, ?, ?, ?)",
+            (session.session_id, session.project_path, search_context, now),
+        )
+        for asset in assets:
+            conn.execute(
+                "INSERT INTO assets (session_id, asset_id, name, source, source_url, license, type, project_path, status, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
+                (session.session_id, asset.get("id", ""), asset.get("name", ""),
+                 asset.get("source", ""), asset.get("sourceUrl", ""), asset.get("license", ""),
+                 asset.get("type", ""), project_path, now),
+            )
+        conn.commit()
+        conn.close()
+
+        self.send_json({
+            "session_id": session.session_id,
+            "search_url": url,
+            "asset_count": len(assets),
+            "message": "Session created. Open the server root URL to browse.",
+        })
 
     def handle_itch_details(self):
         body = self.read_body()

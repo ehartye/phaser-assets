@@ -47,6 +47,77 @@ Use `WebFetch` on promising results to get:
 - File format details (PNG, sprite sheet dimensions, Tiled JSON, WAV/OGG, etc.)
 - Any README or documentation about the asset pack
 
+### itch.io Server Endpoints (Preferred for itch.io)
+
+itch.io listing pages are Cloudflare-protected, so `WebFetch` will often fail on them. When the asset server is running, use these endpoints instead — they use a Playwright-driven Edge browser to bypass Cloudflare automatically.
+
+**Search** — `POST /api/itch/search`
+
+Find free game assets on itch.io with tag, sort, and query filters.
+
+```bash
+curl -s -X POST http://localhost:8483/api/itch/search \
+  -H "Content-Type: application/json" \
+  -d '{"tags": ["pixel-art", "platformer"], "sort": "top-rated", "max_results": 10}'
+```
+
+Request body:
+- `tags` (array, optional): itch.io tags to filter by (e.g. `["pixel-art", "tileset", "fantasy"]`)
+- `sort` (string, optional): one of `"top-rated"`, `"most-recent"`, `"most-downloaded"`
+- `query` (string, optional): free-text search term
+- `max_results` (int, optional): max assets to return, default 30, capped at 60
+
+Response:
+```json
+{"url": "https://itch.io/game-assets/free/tag-pixel-art/...", "count": 10, "assets": [
+  {"name": "...", "url": "https://author.itch.io/pack", "previewUrl": "https://...", "creator": "...", "source": "itch.io"}
+]}
+```
+
+**Details** — `POST /api/itch/details`
+
+Scrape a single itch.io asset page for description, license, file list, and download type.
+
+```bash
+curl -s -X POST http://localhost:8483/api/itch/details \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://author.itch.io/asset-pack"}'
+```
+
+Request body:
+- `url` (string, required): full itch.io asset page URL
+
+Response:
+```json
+{"url": "...", "name": "...", "description": "...", "license": "CC0...", "download_type": "direct",
+ "files": [{"name": "sprites.zip", "upload_id": "12345", "size": "2 MB"}]}
+```
+
+`download_type` is `"direct"`, `"name-your-price"`, or `"unknown"`.
+
+**Download** — `POST /api/itch/download`
+
+Download files from an itch.io asset page. Handles both direct downloads and name-your-price gate flows automatically. Prefers ZIP files when available.
+
+```bash
+curl -s -X POST http://localhost:8483/api/itch/download \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://author.itch.io/asset-pack", "dest_dir": "/absolute/path/to/save"}'
+```
+
+Request body:
+- `url` (string, required): full itch.io asset page URL
+- `dest_dir` (string, required): absolute path to save downloaded files
+
+Response:
+```json
+{"downloaded": [{"name": "sprites.zip", "path": "/absolute/path/sprites.zip", "size": 204800}], "count": 1}
+```
+
+If some files fail, the response includes an `"error"` field with details.
+
+**Note:** The first call to any itch.io endpoint launches a headed Edge browser window (minimized). The browser persists for the server lifetime and is closed on `/shutdown`.
+
 Aim to find **4-8 options** across sources so the user has real choices.
 
 ## Step 3: Show the Preview UI and Download Assets

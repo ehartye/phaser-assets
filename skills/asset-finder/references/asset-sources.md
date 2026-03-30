@@ -31,6 +31,10 @@
 - **Asset types**: Sprites, tilesets, UI kits, backgrounds, fonts, complete game kits
 - **Formats**: PNG sprite sheets, individual frames, Aseprite files, Tiled maps
 - **Search**: `https://itch.io/game-assets/free/tag-{tag}` where tags include: `pixel-art`, `sprites`, `tileset`, `top-down`, `platformer`, `rpg`, `sci-fi`, `fantasy`
+- **Sort options**: `top-rated`, `most-recent`, `most-downloaded`
+- **Cloudflare protection**: Listing pages are behind Cloudflare — `WebFetch` will typically fail. Use the server's `POST /api/itch/search` endpoint instead, which uses Playwright with a headed Edge browser to bypass the challenge.
+- **Downloads**: Use `POST /api/itch/download` or the asset_finder download flow (which auto-delegates itch.io URLs to the Playwright downloader). Handles both direct-download and name-your-price gate flows.
+- **Browser requirement**: The itch.io endpoints require Microsoft Edge installed on the system (`channel='msedge'`, headed mode). The browser launches on first use (minimized) and persists until server shutdown.
 - **Notes**: The free section is genuinely excellent. Sort by "Top rated" or "Most recent". Many creators also offer paid packs with free samples.
 
 ### Freesound.org

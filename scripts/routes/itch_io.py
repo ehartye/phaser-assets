@@ -4,6 +4,7 @@ import os
 import queue
 import threading
 import time
+import urllib.parse
 
 ROUTES = {
     "GET": {},
@@ -136,7 +137,7 @@ def _build_search_url(tags=None, sort=None, query=None):
     if sort and sort in VALID_SORTS:
         params.append(f"sort={sort}")
     if query:
-        params.append(f"q={query.replace(' ', '+')}")
+        params.append(f"q={urllib.parse.quote_plus(query)}")
     if params:
         url += "?" + "&".join(params)
     return url

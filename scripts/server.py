@@ -135,6 +135,15 @@ _base_mixins = [HealthRoutes, AssetFinderRoutes, InspectorRoutes]
 if SceneDesignerRoutes is not None:
     _base_mixins.append(SceneDesignerRoutes)
 
+# itch.io module is optional — requires Playwright
+try:
+    from routes.itch_io import ItchIoRoutes  # noqa: E402
+except (ModuleNotFoundError, ImportError):
+    ItchIoRoutes = None
+
+if ItchIoRoutes is not None:
+    _base_mixins.append(ItchIoRoutes)
+
 
 # ---------------------------------------------------------------------------
 # HTTP handler

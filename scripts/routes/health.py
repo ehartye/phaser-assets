@@ -25,6 +25,11 @@ class HealthRoutes:
 
     def handle_shutdown(self):
         from server import _server_ref
+        try:
+            from routes.itch_io import _shutdown_browser
+            _shutdown_browser()
+        except ImportError:
+            pass
         self.send_json({"status": "shutting down"})
         if _server_ref:
             threading.Thread(target=_server_ref.shutdown, daemon=True).start()

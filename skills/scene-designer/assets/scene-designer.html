@@ -43,12 +43,30 @@
   /* === Left Panel - Tileset Palette === */
   #palette-panel {
     width: 260px;
-    min-width: 260px;
+    min-width: 120px;
+    max-width: 80vw;
     background: var(--surface);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    position: relative;
+  }
+
+  #palette-resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 5px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+    background: transparent;
+  }
+
+  #palette-resize-handle:hover,
+  #palette-resize-handle.dragging {
+    background: var(--accent);
   }
 
   #palette-header {
@@ -173,12 +191,16 @@
     overflow: auto;
     position: relative;
     background: #0a0c12;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   #canvas-container {
     position: relative;
     display: inline-block;
     margin: 16px;
+    flex-shrink: 0;
   }
 
   #scene-canvas {
@@ -642,6 +664,7 @@
 <div id="main">
   <!-- Left: Tileset Palette -->
   <div id="palette-panel">
+    <div id="palette-resize-handle"></div>
     <div id="palette-header">
       <h2>Tileset Palette</h2>
       <div class="subtitle" id="palette-info">Loading tilesets...</div>
@@ -661,7 +684,7 @@
   <div id="canvas-panel">
     <div id="zoom-controls">
       <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">-</button>
-      <span id="zoom-level">2x</span>
+      <span id="zoom-level">3x</span>
       <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
     </div>
     <div id="canvas-container">
@@ -785,7 +808,7 @@ var layers = __LAYERS_PLACEHOLDER__;
 var zones = __ZONES_PLACEHOLDER__;
 
 // ====== State ======
-var zoom = 2;
+var zoom = 3;
 var activeTool = 'paint';
 var activeLayerIndex = 0;
 var activeTilesetIndex = 0;
@@ -1706,6 +1729,37 @@ document.addEventListener('keydown', function(e) {
     case 'h': toggleGrid(); break;
   }
 });
+
+// ====== Palette Resize Handle ======
+(function() {
+  var handle = document.getElementById('palette-resize-handle');
+  var panel = document.getElementById('palette-panel');
+  var dragging = false;
+
+  handle.addEventListener('mousedown', function(e) {
+    dragging = true;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var newWidth = e.clientX;
+    if (newWidth < 120) newWidth = 120;
+    if (newWidth > window.innerWidth * 0.8) newWidth = window.innerWidth * 0.8;
+    panel.style.width = newWidth + 'px';
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
 
 // ====== Start ======
 init();

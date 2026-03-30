@@ -697,6 +697,20 @@
         </div>
       </div>
 
+      <!-- Tile Size -->
+      <div class="prop-section">
+        <h3>Tile Size</h3>
+        <div class="resize-row">
+          <label>W</label>
+          <input type="number" id="tile-width" min="1" max="256">
+          <label>px</label>
+          <label style="margin-left:8px">H</label>
+          <input type="number" id="tile-height" min="1" max="256">
+          <label>px</label>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="resizeTiles()">Apply</button>
+      </div>
+
       <!-- Grid Resize -->
       <div class="prop-section">
         <h3>Grid Size</h3>
@@ -804,6 +818,8 @@ sceneCtx.imageSmoothingEnabled = false;
 function init() {
   document.getElementById('grid-width').value = grid.width;
   document.getElementById('grid-height').value = grid.height;
+  document.getElementById('tile-width').value = tileSize.width;
+  document.getElementById('tile-height').value = tileSize.height;
 
   // Ensure layers have valid data arrays
   for (var i = 0; i < layers.length; i++) {
@@ -1587,6 +1603,27 @@ document.getElementById('zone-name-input').addEventListener('keydown', function(
   if (e.key === 'Enter') { e.preventDefault(); confirmZonePrompt(); }
   if (e.key === 'Escape') { cancelZonePrompt(); }
 });
+
+// ====== Tile Size ======
+function resizeTiles() {
+  var newTW = parseInt(document.getElementById('tile-width').value);
+  var newTH = parseInt(document.getElementById('tile-height').value);
+  if (isNaN(newTW) || isNaN(newTH) || newTW < 1 || newTH < 1) return;
+
+  tileSize.width = newTW;
+  tileSize.height = newTH;
+
+  // Update tileset configs to match new tile size
+  for (var i = 0; i < tilesetConfigs.length; i++) {
+    tilesetConfigs[i].tile_width = newTW;
+    tilesetConfigs[i].tile_height = newTH;
+  }
+
+  // Reload tilesets with new tile dimensions and re-render
+  loadTilesets();
+  resizeCanvases();
+  renderScene();
+}
 
 // ====== Grid Resize ======
 function resizeGrid() {

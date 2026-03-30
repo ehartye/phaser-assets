@@ -32,7 +32,9 @@ If the user is vague, suggest sensible defaults based on game type:
 curl -s http://localhost:8483/health || python "$CLAUDE_PLUGIN_ROOT/scripts/server.py" --port 8483 --no-open &
 ```
 
-2. POST the scene config with pre-populated data:
+2. Discover available tilesets in the project. Look in `assets/images/tiles/`, `assets/images/characters/`, and similar directories for PNG sprite sheets. Check for `spritesheetInfo.txt` files or inspect the images to determine tile size, margin, and spacing. Common Kenney roguelike sheets use 16x16 tiles with margin=1, spacing=1.
+
+3. POST the scene config with ALL relevant tilesets loaded. Include terrain, characters, objects — anything the user might want to paint with. Each tileset gets its own tab in the palette:
 ```bash
 curl -s -X POST http://localhost:8483/api/designer/load \
   -H "Content-Type: application/json" \
@@ -46,11 +48,17 @@ curl -s -X POST http://localhost:8483/api/designer/load \
         "image_path": "assets/images/tiles/terrain.png",
         "tile_width": 16, "tile_height": 16,
         "margin": 0, "spacing": 0
+      },
+      {
+        "name": "characters",
+        "image_path": "assets/images/characters/spritesheet.png",
+        "tile_width": 16, "tile_height": 16,
+        "margin": 1, "spacing": 1
       }
     ],
     "layers": [
       {"name": "Ground", "type": "tilelayer", "data": [...]},
-      {"name": "Buildings", "type": "tilelayer", "data": [0, 0, ...]},
+      {"name": "Objects", "type": "tilelayer", "data": [0, 0, ...]},
       {"name": "Collision", "type": "objectgroup", "objects": []}
     ],
     "zones": [
@@ -59,7 +67,7 @@ curl -s -X POST http://localhost:8483/api/designer/load \
   }'
 ```
 
-Use tile indices from sprite-inspector results to pre-fill layers. For example, if grass is tile index 5 in the terrain tileset, fill the Ground layer data array with 6 (index 5 + firstgid 1).
+Use tile indices from sprite-inspector results to pre-fill layers. For example, if grass is tile index 5 in the terrain tileset, fill the Ground layer data array with 6 (index 5 + firstgid 1). Load as many tilesets as the project has — the user can switch between them in the palette tabs.
 
 3. Tell the user to open http://localhost:8483/designer. Explain:
    - **Left panel**: Tile palette — click a tile to select it as your brush

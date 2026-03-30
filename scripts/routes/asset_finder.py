@@ -88,13 +88,8 @@ def _download_one(asset, session):
     # Delegate itch.io URLs to the Playwright-based downloader
     if "itch.io" in url:
         try:
-            from routes.itch_io import _get_browser_context, _new_page, _download_from_itch
-            ctx = _get_browser_context()
-            page = _new_page(ctx)
-            try:
-                saved, error = _download_from_itch(page, url, dest_dir)
-            finally:
-                page.close()
+            from routes.itch_io import _run_on_pw, _pw_download
+            saved, error = _run_on_pw(_pw_download, url, dest_dir)
             if saved:
                 return True, saved[0]["path"], error
             return False, None, error or "no files downloaded"

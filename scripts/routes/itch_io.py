@@ -1,6 +1,7 @@
 """itch.io routes — search, inspect, and download free game assets via Playwright."""
 
 import os
+import queue
 import threading
 import time
 
@@ -14,46 +15,83 @@ ROUTES = {
 }
 
 # ---------------------------------------------------------------------------
-# Shared browser instance
+# Shared browser instance — runs on a dedicated thread
+#
+# Playwright's sync API is bound to the thread that calls start().
+# Since the HTTP server dispatches requests on pool threads, we run
+# Playwright on a single long-lived daemon thread and proxy work to it.
 # ---------------------------------------------------------------------------
 
-_browser = None
-_browser_context = None
-_browser_lock = threading.Lock()
+_pw_thread = None
+_pw_lock = threading.Lock()
+_pw_queue = queue.Queue()
 
 
-def _get_browser_context():
-    """Return a shared Playwright browser context, launching Edge on first call."""
-    global _browser, _browser_context
-    with _browser_lock:
-        if _browser_context is not None:
-            return _browser_context
-        from playwright.sync_api import sync_playwright
-        pw = sync_playwright().start()
-        _browser = pw.chromium.launch(
-            headless=False,
-            channel="msedge",
-            args=["--disable-blink-features=AutomationControlled", "--start-minimized"],
-        )
-        _browser_context = _browser.new_context(
-            viewport={"width": 1920, "height": 1080},
-            locale="en-US",
-            accept_downloads=True,
-        )
-        return _browser_context
+def _playwright_worker():
+    """Dedicated thread that owns the Playwright browser instance."""
+    from playwright.sync_api import sync_playwright
+    pw = sync_playwright().start()
+    browser = pw.chromium.launch(
+        headless=False,
+        channel="msedge",
+        args=["--disable-blink-features=AutomationControlled", "--start-minimized"],
+    )
+    context = browser.new_context(
+        viewport={"width": 1920, "height": 1080},
+        locale="en-US",
+        accept_downloads=True,
+    )
+    while True:
+        item = _pw_queue.get()
+        if item is None:  # shutdown sentinel
+            try:
+                browser.close()
+            except Exception:
+                pass
+            try:
+                pw.stop()
+            except Exception:
+                pass
+            _pw_queue.task_done()
+            break
+        func, args, result_q = item
+        try:
+            rv = func(context, *args)
+            result_q.put(("ok", rv))
+        except Exception as exc:
+            result_q.put(("error", exc))
+        _pw_queue.task_done()
+
+
+def _ensure_worker():
+    """Start the Playwright worker thread if not already running."""
+    global _pw_thread
+    with _pw_lock:
+        if _pw_thread is not None and _pw_thread.is_alive():
+            return
+        _pw_thread = threading.Thread(target=_playwright_worker, daemon=True)
+        _pw_thread.start()
+
+
+def _run_on_pw(func, *args):
+    """Submit work to the Playwright thread and block for the result."""
+    _ensure_worker()
+    result_q = queue.Queue()
+    _pw_queue.put((func, args, result_q))
+    status, value = result_q.get()
+    if status == "error":
+        raise value
+    return value
 
 
 def _shutdown_browser():
     """Close the browser if it was started. Called on server shutdown."""
-    global _browser, _browser_context
-    with _browser_lock:
-        if _browser:
-            try:
-                _browser.close()
-            except Exception:
-                pass
-            _browser = None
-            _browser_context = None
+    global _pw_thread
+    with _pw_lock:
+        if _pw_thread is not None and _pw_thread.is_alive():
+            _pw_queue.put(None)
+            _pw_thread.join(timeout=10)
+            _pw_thread = None
 
 
 def _new_page(context):
@@ -289,6 +327,33 @@ def _download_from_itch(page, asset_url, dest_dir):
 # Route handler mixin
 # ---------------------------------------------------------------------------
 
+def _pw_search(context, url, max_results):
+    """Run search on the Playwright thread."""
+    page = _new_page(context)
+    try:
+        return _scrape_listing(page, url, max_results=max_results)
+    finally:
+        page.close()
+
+
+def _pw_details(context, asset_url):
+    """Run details scrape on the Playwright thread."""
+    page = _new_page(context)
+    try:
+        return _scrape_details(page, asset_url)
+    finally:
+        page.close()
+
+
+def _pw_download(context, asset_url, dest_dir):
+    """Run download on the Playwright thread."""
+    page = _new_page(context)
+    try:
+        return _download_from_itch(page, asset_url, dest_dir)
+    finally:
+        page.close()
+
+
 class ItchIoRoutes:
     """Mixin providing itch.io search, details, and download handlers."""
 
@@ -300,13 +365,8 @@ class ItchIoRoutes:
         max_results = min(body.get("max_results", 30), 60)
         url = _build_search_url(tags=tags, sort=sort, query=query)
         try:
-            ctx = _get_browser_context()
-            page = _new_page(ctx)
-            try:
-                results = _scrape_listing(page, url, max_results=max_results)
-                self.send_json({"url": url, "count": len(results), "assets": results})
-            finally:
-                page.close()
+            results = _run_on_pw(_pw_search, url, max_results)
+            self.send_json({"url": url, "count": len(results), "assets": results})
         except Exception as exc:
             self.send_json({"error": str(exc)}, 500)
 
@@ -317,13 +377,8 @@ class ItchIoRoutes:
             self.send_json({"error": "missing or invalid itch.io URL"}, 400)
             return
         try:
-            ctx = _get_browser_context()
-            page = _new_page(ctx)
-            try:
-                details = _scrape_details(page, asset_url)
-                self.send_json(details)
-            finally:
-                page.close()
+            details = _run_on_pw(_pw_details, asset_url)
+            self.send_json(details)
         except Exception as exc:
             self.send_json({"error": str(exc)}, 500)
 
@@ -338,15 +393,10 @@ class ItchIoRoutes:
             self.send_json({"error": "missing dest_dir"}, 400)
             return
         try:
-            ctx = _get_browser_context()
-            page = _new_page(ctx)
-            try:
-                saved, error = _download_from_itch(page, asset_url, dest_dir)
-                result = {"downloaded": saved, "count": len(saved)}
-                if error:
-                    result["error"] = error
-                self.send_json(result)
-            finally:
-                page.close()
+            saved, error = _run_on_pw(_pw_download, asset_url, dest_dir)
+            result = {"downloaded": saved, "count": len(saved)}
+            if error:
+                result["error"] = error
+            self.send_json(result)
         except Exception as exc:
             self.send_json({"error": str(exc)}, 500)

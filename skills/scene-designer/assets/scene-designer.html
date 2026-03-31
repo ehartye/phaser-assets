@@ -1808,7 +1808,12 @@ function setTileSize(size) {
     btn.classList.toggle('active', parseInt(btn.textContent) === size);
   });
 
+  // Clear recently used — tile indices are invalid at the new size
+  recentTiles = {};
+  activeTile = 0;
+
   loadTilesets();
+  renderRecentTiles();
   resizeCanvases();
   renderScene();
 }

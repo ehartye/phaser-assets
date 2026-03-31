@@ -143,6 +143,40 @@
     font-style: italic;
   }
 
+  /* Palette zoom controls */
+  #palette-zoom-controls {
+    float: right;
+    font-size: 12px;
+    font-weight: normal;
+  }
+
+  .pal-zoom-btn {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    vertical-align: middle;
+  }
+
+  .pal-zoom-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--accent);
+  }
+
+  #pal-zoom-level {
+    display: inline-block;
+    min-width: 24px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    vertical-align: middle;
+  }
+
   /* Tile palette grid */
   #palette-grid {
     flex: 1;
@@ -666,7 +700,13 @@
   <div id="palette-panel">
     <div id="palette-resize-handle"></div>
     <div id="palette-header">
-      <h2>Tileset Palette</h2>
+      <h2>Tileset Palette
+        <span id="palette-zoom-controls">
+          <button class="pal-zoom-btn" onclick="palZoomOut()" title="Palette Zoom Out">-</button>
+          <span id="pal-zoom-level">2x</span>
+          <button class="pal-zoom-btn" onclick="palZoomIn()" title="Palette Zoom In">+</button>
+        </span>
+      </h2>
       <div class="subtitle" id="palette-info">Loading tilesets...</div>
     </div>
 
@@ -809,6 +849,7 @@ var zones = __ZONES_PLACEHOLDER__;
 
 // ====== State ======
 var zoom = 3;
+var palZoom = 2;
 var activeTool = 'paint';
 var activeLayerIndex = 0;
 var activeTilesetIndex = 0;
@@ -947,8 +988,6 @@ function buildPaletteGrid(tsIdx) {
   var cols = Math.floor((img.width - margin + spacing) / (tw + spacing));
   var rows = Math.floor((img.height - margin + spacing) / (th + spacing));
 
-  var palScale = 2;
-
   for (var r = 0; r < rows; r++) {
     for (var c = 0; c < cols; c++) {
       var tileIdx = r * cols + c;
@@ -956,8 +995,8 @@ function buildPaletteGrid(tsIdx) {
       var sy = margin + r * (th + spacing);
 
       var canvas = document.createElement('canvas');
-      canvas.width = tw * palScale;
-      canvas.height = th * palScale;
+      canvas.width = tw * palZoom;
+      canvas.height = th * palZoom;
       canvas.className = 'palette-tile';
       canvas.dataset.tsIdx = tsIdx;
       canvas.dataset.tileIdx = tileIdx;
@@ -965,7 +1004,7 @@ function buildPaletteGrid(tsIdx) {
 
       var ctx = canvas.getContext('2d');
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(img, sx, sy, tw, th, 0, 0, tw * palScale, th * palScale);
+      ctx.drawImage(img, sx, sy, tw, th, 0, 0, tw * palZoom, th * palZoom);
 
       // Compute global tile ID (firstgid + tileIdx)
       var firstgid = getFirstGid(tsIdx);
@@ -1413,6 +1452,21 @@ function zoomOut() {
   document.getElementById('zoom-level').textContent = zoom + 'x';
   resizeCanvases();
   renderScene();
+}
+
+// ====== Palette Zoom ======
+function palZoomIn() {
+  if (palZoom >= 8) return;
+  palZoom++;
+  document.getElementById('pal-zoom-level').textContent = palZoom + 'x';
+  buildPaletteGrid(activeTilesetIndex);
+}
+
+function palZoomOut() {
+  if (palZoom <= 1) return;
+  palZoom--;
+  document.getElementById('pal-zoom-level').textContent = palZoom + 'x';
+  buildPaletteGrid(activeTilesetIndex);
 }
 
 // ====== Grid Toggle ======

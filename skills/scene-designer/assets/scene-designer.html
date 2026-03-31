@@ -896,15 +896,27 @@
   <button class="btn btn-success" id="send-btn" onclick="sendToClaude()">Send to Claude</button>
 </div>
 
-<!-- Tile Size Change Prompt -->
-<div class="modal-overlay" id="tile-size-prompt">
+<!-- Tile Size Step 1: Scope -->
+<div class="modal-overlay" id="tile-size-scope">
   <div class="modal-box">
-    <h3>Layers contain tile data</h3>
-    <p>Changing tile size will invalidate existing tiles. Clear layer data to continue?</p>
+    <h3>Change tile size</h3>
+    <p>Apply to which layers?</p>
     <div class="modal-actions">
-      <button class="btn btn-sm btn-outline" onclick="tileSizeClearThis()">Clear this layer</button>
-      <button class="btn btn-sm btn-outline" style="border-color:var(--danger);color:var(--danger)" onclick="tileSizeClearAll()">Clear all layers</button>
-      <button class="btn btn-sm btn-outline" onclick="tileSizeCancel()">Cancel</button>
+      <button class="btn btn-sm btn-outline" onclick="tileSizeScopeThis()">This layer</button>
+      <button class="btn btn-sm btn-outline" onclick="tileSizeScopeAll()">All layers</button>
+      <button class="btn btn-sm btn-outline" onclick="tileSizeScopeCancel()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tile Size Step 2: Confirm clear -->
+<div class="modal-overlay" id="tile-size-confirm">
+  <div class="modal-box">
+    <h3>Clear existing tiles?</h3>
+    <p>Changing tile size will invalidate existing tile data. Clear and continue?</p>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-outline" style="border-color:var(--danger);color:var(--danger)" onclick="tileSizeConfirmClear()">Clear &amp; change</button>
+      <button class="btn btn-sm btn-outline" onclick="tileSizeConfirmCancel()">Cancel</button>
     </div>
   </div>
 </div>
@@ -1897,37 +1909,60 @@ function _applyTileSize(size) {
   renderScene();
 }
 
+var _pendingTileSize = 0;
+var _pendingTileSizeScope = ''; // 'this' or 'all'
+
 function setTileSize(size) {
   if (size === tileSize.width) return;
-
-  if (!_anyLayerHasTiles()) {
-    _applyTileSize(size);
-    return;
-  }
-
-  // Show clear prompt
   _pendingTileSize = size;
-  document.getElementById('tile-size-prompt').classList.add('visible');
+  // Step 1: ask scope
+  document.getElementById('tile-size-scope').classList.add('visible');
 }
 
-var _pendingTileSize = 0;
-
-function tileSizeClearThis() {
-  _clearLayerData(activeLayerIndex);
-  _applyTileSize(_pendingTileSize);
-  document.getElementById('tile-size-prompt').classList.remove('visible');
-}
-
-function tileSizeClearAll() {
-  for (var i = 0; i < layers.length; i++) {
-    _clearLayerData(i);
+function tileSizeScopeThis() {
+  _pendingTileSizeScope = 'this';
+  document.getElementById('tile-size-scope').classList.remove('visible');
+  if (_hasTileData(activeLayerIndex)) {
+    // Step 2: confirm clear
+    document.getElementById('tile-size-confirm').classList.add('visible');
+  } else {
+    _applyTileSizeScoped();
   }
-  _applyTileSize(_pendingTileSize);
-  document.getElementById('tile-size-prompt').classList.remove('visible');
 }
 
-function tileSizeCancel() {
-  document.getElementById('tile-size-prompt').classList.remove('visible');
+function tileSizeScopeAll() {
+  _pendingTileSizeScope = 'all';
+  document.getElementById('tile-size-scope').classList.remove('visible');
+  if (_anyLayerHasTiles()) {
+    // Step 2: confirm clear
+    document.getElementById('tile-size-confirm').classList.add('visible');
+  } else {
+    _applyTileSizeScoped();
+  }
+}
+
+function tileSizeScopeCancel() {
+  document.getElementById('tile-size-scope').classList.remove('visible');
+}
+
+function tileSizeConfirmClear() {
+  if (_pendingTileSizeScope === 'this') {
+    _clearLayerData(activeLayerIndex);
+  } else {
+    for (var i = 0; i < layers.length; i++) {
+      _clearLayerData(i);
+    }
+  }
+  document.getElementById('tile-size-confirm').classList.remove('visible');
+  _applyTileSizeScoped();
+}
+
+function tileSizeConfirmCancel() {
+  document.getElementById('tile-size-confirm').classList.remove('visible');
+}
+
+function _applyTileSizeScoped() {
+  _applyTileSize(_pendingTileSize);
 }
 
 // ====== Grid Resize ======

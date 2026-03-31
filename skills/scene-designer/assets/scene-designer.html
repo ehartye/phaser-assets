@@ -1339,48 +1339,47 @@ function renderScene() {
 
 function renderGridOverlay() {
   gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
-  if (!showGrid) return;
 
   var cw = tileSize.width * zoom;
   var ch = tileSize.height * zoom;
-
-  gridCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
-  gridCtx.lineWidth = 1;
-
-  for (var c = 0; c <= grid.width; c++) {
-    var x = c * cw + 0.5;
-    gridCtx.beginPath();
-    gridCtx.moveTo(x, 0);
-    gridCtx.lineTo(x, gridCanvas.height);
-    gridCtx.stroke();
-  }
-
-  for (var r = 0; r <= grid.height; r++) {
-    var y = r * ch + 0.5;
-    gridCtx.beginPath();
-    gridCtx.moveTo(0, y);
-    gridCtx.lineTo(gridCanvas.width, y);
-    gridCtx.stroke();
-  }
-
-  // Scene boundary lines
-  if (!showBounds) return;
-  var sx = scenePixels.width * zoom + 0.5;
-  var sy = scenePixels.height * zoom + 0.5;
   var canvasW = gridCanvas.width;
   var canvasH = gridCanvas.height;
 
-  gridCtx.strokeStyle = 'rgba(80, 140, 255, 0.5)';
-  gridCtx.lineWidth = 2;
+  if (showGrid) {
+    gridCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    gridCtx.lineWidth = 1;
 
-  if (sx < canvasW) {
+    for (var c = 0; c <= grid.width; c++) {
+      var x = c * cw + 0.5;
+      gridCtx.beginPath();
+      gridCtx.moveTo(x, 0);
+      gridCtx.lineTo(x, canvasH);
+      gridCtx.stroke();
+    }
+
+    for (var r = 0; r <= grid.height; r++) {
+      var y = r * ch + 0.5;
+      gridCtx.beginPath();
+      gridCtx.moveTo(0, y);
+      gridCtx.lineTo(canvasW, y);
+      gridCtx.stroke();
+    }
+  }
+
+  if (showBounds) {
+    var sx = scenePixels.width * zoom + 0.5;
+    var sy = scenePixels.height * zoom + 0.5;
+
+    gridCtx.strokeStyle = 'rgba(80, 140, 255, 0.6)';
+    gridCtx.lineWidth = 2;
+
+    // Right boundary
     gridCtx.beginPath();
     gridCtx.moveTo(sx, 0);
     gridCtx.lineTo(sx, canvasH);
     gridCtx.stroke();
-  }
 
-  if (sy < canvasH) {
+    // Bottom boundary
     gridCtx.beginPath();
     gridCtx.moveTo(0, sy);
     gridCtx.lineTo(canvasW, sy);

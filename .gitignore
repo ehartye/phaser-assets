@@ -6,7 +6,7 @@ asset-preview-*.html
 asset-selections-*.json
 
 # Downloaded game assets (project-specific, re-fetchable)
-assets/
+/assets/
 
 # OS files
 .DS_Store

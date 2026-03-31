@@ -1845,22 +1845,14 @@ function addLayer(type) {
   syncToActiveLayer();
   renderLayers();
 
-  // Allow inline rename
+  // Focus the name for inline rename
   var nameEl = document.querySelector('.layer-item.active .layer-name');
   if (nameEl) {
-    nameEl.contentEditable = true;
     nameEl.focus();
     var range = document.createRange();
     range.selectNodeContents(nameEl);
     window.getSelection().removeAllRanges();
     window.getSelection().addRange(range);
-    nameEl.addEventListener('blur', function() {
-      this.contentEditable = false;
-      layers[activeLayerIndex].name = this.textContent.trim() || name;
-    }, { once: true });
-    nameEl.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
-    });
   }
 }
 
@@ -1952,8 +1944,9 @@ function syncToActiveLayer() {
 
   var size = _layerTileSize(layer);
   var oldSize = tileSize.width;
+  var sizeChanged = size !== oldSize;
 
-  if (size !== oldSize) {
+  if (sizeChanged) {
     recentTilesBySize[oldSize] = recentTiles;
     activeTileBySize[oldSize] = activeTile;
 
@@ -1966,19 +1959,23 @@ function syncToActiveLayer() {
 
     recentTiles = recentTilesBySize[size] || {};
     activeTile = activeTileBySize[size] || 0;
+  }
 
-    grid.width = _layerGridCols(layer);
-    grid.height = _layerGridRows(layer);
+  // Always sync grid to active layer's dimensions
+  grid.width = _layerGridCols(layer);
+  grid.height = _layerGridRows(layer);
 
-    document.querySelectorAll('.tile-size-btn').forEach(function(btn) {
-      btn.classList.toggle('active', parseInt(btn.textContent) === size);
-    });
-    updateGridTileInfo();
+  document.querySelectorAll('.tile-size-btn').forEach(function(btn) {
+    btn.classList.toggle('active', parseInt(btn.textContent) === size);
+  });
+  updateGridTileInfo();
+
+  if (sizeChanged) {
     loadTilesets();
     renderRecentTiles();
-    resizeCanvases();
-    renderScene();
   }
+  resizeCanvases();
+  renderScene();
 }
 
 // ====== Per-Layer Tile Size ======

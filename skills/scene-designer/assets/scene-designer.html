@@ -888,6 +888,7 @@
   <div class="separator"></div>
 
   <button class="toggle-btn active" id="grid-toggle" onclick="toggleGrid()">Grid</button>
+  <button class="toggle-btn active" id="bounds-toggle" onclick="toggleBounds()">Bounds</button>
 
   <div class="spacer"></div>
 
@@ -966,6 +967,7 @@ var activeTilesetIndex = 0;
 var activeTile = 0; // 0 = eraser / empty
 var activeTileBySize = {}; // { tileSize: globalId }
 var showGrid = true;
+var showBounds = true;
 var painting = false;
 var zoneDrawing = false;
 var zoneStart = null;
@@ -1362,6 +1364,7 @@ function renderGridOverlay() {
   }
 
   // Scene boundary lines
+  if (!showBounds) return;
   var sx = scenePixels.width * zoom + 0.5;
   var sy = scenePixels.height * zoom + 0.5;
   var canvasW = gridCanvas.width;
@@ -1658,6 +1661,12 @@ function palZoomOut() {
 function toggleGrid() {
   showGrid = !showGrid;
   document.getElementById('grid-toggle').classList.toggle('active', showGrid);
+  renderGridOverlay();
+}
+
+function toggleBounds() {
+  showBounds = !showBounds;
+  document.getElementById('bounds-toggle').classList.toggle('active', showBounds);
   renderGridOverlay();
 }
 

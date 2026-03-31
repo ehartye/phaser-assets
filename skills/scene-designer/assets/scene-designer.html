@@ -1339,14 +1339,30 @@ function renderZoneOverlay() {
 }
 
 // ====== Canvas Mouse Events ======
+var _rightErasing = false;
+
 function setupCanvasEvents() {
   var container = document.getElementById('canvas-container');
 
+  // Block context menu on canvas so right-click erase works
+  container.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
   container.addEventListener('mousedown', function(e) {
+    // Right-click: erase
+    if (e.button === 2) {
+      e.preventDefault();
+      var pos = getCanvasPos(e);
+      if (!pos) return;
+      _rightErasing = true;
+      painting = true;
+      applyBrushAs(pos.row, pos.col, 'erase');
+      return;
+    }
     if (e.button !== 0) return;
     var pos = getCanvasPos(e);
     if (!pos) return;
 
+    _rightErasing = false;
     if (activeTool === 'zone') {
       zoneDrawing = true;
       // Snap to pixel (not tile)
@@ -1382,7 +1398,11 @@ function setupCanvasEvents() {
     }
 
     if (painting && pos) {
-      applyBrush(pos.row, pos.col);
+      if (_rightErasing) {
+        applyBrushAs(pos.row, pos.col, 'erase');
+      } else {
+        applyBrush(pos.row, pos.col);
+      }
     }
   });
 
@@ -1402,10 +1422,12 @@ function setupCanvasEvents() {
       renderZoneOverlay();
     }
     painting = false;
+    _rightErasing = false;
   });
 
   container.addEventListener('mouseleave', function() {
     painting = false;
+    _rightErasing = false;
   });
 }
 
@@ -1423,11 +1445,15 @@ function getCanvasPos(e) {
 
 // ====== Paint / Erase ======
 function applyBrush(row, col) {
+  applyBrushAs(row, col, activeTool);
+}
+
+function applyBrushAs(row, col, tool) {
   var layer = layers[activeLayerIndex];
   if (!layer || layer.type !== 'tilelayer') return;
 
   var idx = row * grid.width + col;
-  var newVal = activeTool === 'erase' ? 0 : activeTile;
+  var newVal = tool === 'erase' ? 0 : activeTile;
 
   if (layer.data[idx] === newVal) return;
 

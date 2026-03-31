@@ -897,6 +897,7 @@ var activeTool = 'paint';
 var activeLayerIndex = 0;
 var activeTilesetIndex = 0;
 var activeTile = 0; // 0 = eraser / empty
+var activeTileBySize = {}; // { tileSize: globalId }
 var showGrid = true;
 var painting = false;
 var zoneDrawing = false;
@@ -910,6 +911,7 @@ var tilesetReady = [];  // booleans
 
 // Recently used tiles: Map of "tilesetIdx:tileIdx" -> count
 var recentTiles = {};
+var recentTilesBySize = {}; // { tileSize: { globalId: count } }
 
 // ====== Canvas Setup ======
 var sceneCanvas = document.getElementById('scene-canvas');
@@ -1795,6 +1797,11 @@ document.getElementById('zone-name-input').addEventListener('keydown', function(
 
 // ====== Tile Size ======
 function setTileSize(size) {
+  // Save current state for the old size
+  var oldSize = tileSize.width;
+  recentTilesBySize[oldSize] = recentTiles;
+  activeTileBySize[oldSize] = activeTile;
+
   tileSize.width = size;
   tileSize.height = size;
 
@@ -1803,14 +1810,14 @@ function setTileSize(size) {
     tilesetConfigs[i].tile_height = size;
   }
 
+  // Restore state for the new size
+  recentTiles = recentTilesBySize[size] || {};
+  activeTile = activeTileBySize[size] || 0;
+
   // Highlight active button
   document.querySelectorAll('.tile-size-btn').forEach(function(btn) {
     btn.classList.toggle('active', parseInt(btn.textContent) === size);
   });
-
-  // Clear recently used — tile indices are invalid at the new size
-  recentTiles = {};
-  activeTile = 0;
 
   loadTilesets();
   renderRecentTiles();

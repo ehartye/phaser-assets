@@ -614,8 +614,9 @@ composePreviewCtx.imageSmoothingEnabled = false;
 img = new Image();
 img.crossOrigin = 'anonymous';
 img.onload = function() {
-  cols = Math.floor((img.width - margin) / (tileWidth + spacing));
-  rows = Math.floor((img.height - margin) / (tileHeight + spacing));
+  var layout = sheetLayout(img.width, img.height, tileWidth, tileHeight, margin, spacing);
+  cols = layout.cols;
+  rows = layout.rows;
   document.getElementById('grid-header').textContent =
     cols * rows + ' tiles (' + cols + ' x ' + rows + ') — ' + tileWidth + 'x' + tileHeight + 'px each';
   document.getElementById('sheet-info').textContent =

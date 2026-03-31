@@ -29,8 +29,8 @@ function tileColRow(index, cols) {
  * @returns {{cols: number, rows: number}}
  */
 function sheetLayout(imgWidth, imgHeight, tileW, tileH, margin, spacing) {
-  const cols = Math.floor((imgWidth - margin) / (tileW + spacing));
-  const rows = Math.floor((imgHeight - margin) / (tileH + spacing));
+  const cols = Math.floor((imgWidth - margin + spacing) / (tileW + spacing));
+  const rows = Math.floor((imgHeight - margin + spacing) / (tileH + spacing));
   return { cols, rows };
 }
 

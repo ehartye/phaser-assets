@@ -1367,23 +1367,12 @@ function renderGridOverlay() {
   }
 
   if (showBounds) {
-    var sx = scenePixels.width * zoom + 0.5;
-    var sy = scenePixels.height * zoom + 0.5;
+    var bw = scenePixels.width * zoom;
+    var bh = scenePixels.height * zoom;
 
     gridCtx.strokeStyle = 'rgba(80, 140, 255, 0.6)';
     gridCtx.lineWidth = 2;
-
-    // Right boundary
-    gridCtx.beginPath();
-    gridCtx.moveTo(sx, 0);
-    gridCtx.lineTo(sx, canvasH);
-    gridCtx.stroke();
-
-    // Bottom boundary
-    gridCtx.beginPath();
-    gridCtx.moveTo(0, sy);
-    gridCtx.lineTo(canvasW, sy);
-    gridCtx.stroke();
+    gridCtx.strokeRect(-0.5, -0.5, bw + 1, bh + 1);
   }
 }
 

@@ -856,20 +856,21 @@
         </div>
       </div>
 
-      <!-- Grid Resize -->
+      <!-- Scene Size -->
       <div class="prop-section">
-        <h3>Grid Size</h3>
+        <h3>Scene Size</h3>
         <div class="resize-row">
           <label>Width</label>
-          <input type="number" id="grid-width" min="1" max="500">
-          <label>tiles</label>
+          <input type="number" id="scene-width-px" min="8" max="8192" step="1">
+          <label>px</label>
         </div>
         <div class="resize-row">
           <label>Height</label>
-          <input type="number" id="grid-height" min="1" max="500">
-          <label>tiles</label>
+          <input type="number" id="scene-height-px" min="8" max="8192" step="1">
+          <label>px</label>
         </div>
-        <button class="btn btn-sm btn-outline" onclick="resizeGrid()">Resize Grid</button>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px" id="grid-tile-info"></div>
+        <button class="btn btn-sm btn-outline" onclick="resizeScene()">Resize</button>
       </div>
     </div>
   </div>
@@ -950,6 +951,8 @@
 // ====== Server-injected Data ======
 var grid = __GRID_CONFIG_PLACEHOLDER__;
 var tileSize = __TILE_SIZE_PLACEHOLDER__;
+// Scene size in pixels — source of truth; grid tile count is derived
+var scenePixels = { width: 0, height: 0 };
 var tilesetConfigs = __TILESETS_PLACEHOLDER__;
 var layers = __LAYERS_PLACEHOLDER__;
 var zones = __ZONES_PLACEHOLDER__;
@@ -988,9 +991,19 @@ var zoneCtx = zoneCanvas.getContext('2d');
 sceneCtx.imageSmoothingEnabled = false;
 
 // ====== Init ======
+function updateGridTileInfo() {
+  document.getElementById('grid-tile-info').textContent =
+    grid.width + ' \u00d7 ' + grid.height + ' tiles at ' + tileSize.width + 'px';
+}
+
 function init() {
-  document.getElementById('grid-width').value = grid.width;
-  document.getElementById('grid-height').value = grid.height;
+  // Compute pixel dimensions from initial grid
+  scenePixels.width = grid.width * tileSize.width;
+  scenePixels.height = grid.height * tileSize.height;
+  document.getElementById('scene-width-px').value = scenePixels.width;
+  document.getElementById('scene-height-px').value = scenePixels.height;
+  updateGridTileInfo();
+
   // Highlight active tile size button
   document.querySelectorAll('.tile-size-btn').forEach(function(btn) {
     btn.classList.toggle('active', parseInt(btn.textContent) === tileSize.width);
@@ -1903,6 +1916,9 @@ function _applyTileSize(size) {
     btn.classList.toggle('active', parseInt(btn.textContent) === size);
   });
 
+  // Recompute grid from stable pixel dimensions
+  _recomputeGrid();
+
   loadTilesets();
   renderRecentTiles();
   resizeCanvases();
@@ -1965,34 +1981,44 @@ function _applyTileSizeScoped() {
   _applyTileSize(_pendingTileSize);
 }
 
-// ====== Grid Resize ======
-function resizeGrid() {
-  var newW = parseInt(document.getElementById('grid-width').value);
-  var newH = parseInt(document.getElementById('grid-height').value);
-  if (isNaN(newW) || isNaN(newH) || newW < 1 || newH < 1) return;
+// ====== Scene Resize ======
+function _recomputeGrid() {
+  var newW = Math.floor(scenePixels.width / tileSize.width);
+  var newH = Math.floor(scenePixels.height / tileSize.height);
+  if (newW < 1) newW = 1;
+  if (newH < 1) newH = 1;
 
   var oldW = grid.width;
   var oldH = grid.height;
 
-  for (var i = 0; i < layers.length; i++) {
-    if (layers[i].type !== 'tilelayer' || !layers[i].data) continue;
-
-    var newData = new Array(newW * newH).fill(0);
-    var copyW = Math.min(oldW, newW);
-    var copyH = Math.min(oldH, newH);
-
-    for (var r = 0; r < copyH; r++) {
-      for (var c = 0; c < copyW; c++) {
-        newData[r * newW + c] = layers[i].data[r * oldW + c];
+  if (newW !== oldW || newH !== oldH) {
+    for (var i = 0; i < layers.length; i++) {
+      if (layers[i].type !== 'tilelayer' || !layers[i].data) continue;
+      var newData = new Array(newW * newH).fill(0);
+      var copyW = Math.min(oldW, newW);
+      var copyH = Math.min(oldH, newH);
+      for (var r = 0; r < copyH; r++) {
+        for (var c = 0; c < copyW; c++) {
+          newData[r * newW + c] = layers[i].data[r * oldW + c];
+        }
       }
+      layers[i].data = newData;
     }
-
-    layers[i].data = newData;
+    grid.width = newW;
+    grid.height = newH;
   }
 
-  grid.width = newW;
-  grid.height = newH;
+  updateGridTileInfo();
+}
 
+function resizeScene() {
+  var newW = parseInt(document.getElementById('scene-width-px').value);
+  var newH = parseInt(document.getElementById('scene-height-px').value);
+  if (isNaN(newW) || isNaN(newH) || newW < 8 || newH < 8) return;
+
+  scenePixels.width = newW;
+  scenePixels.height = newH;
+  _recomputeGrid();
   resizeCanvases();
   renderScene();
 }

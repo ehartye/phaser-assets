@@ -1,0 +1,688 @@
+/* ============================================================
+   Scene Designer — page-specific styles
+   Shared tokens / buttons / toggles live in theme.css
+   ============================================================ */
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* === Main Layout === */
+#main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* === Left Panel - Tileset Palette === */
+#palette-panel {
+  max-width: 40vw;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+
+#palette-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+  background: transparent;
+}
+
+#palette-resize-handle:hover,
+#palette-resize-handle.dragging {
+  background: var(--accent);
+}
+
+#palette-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+#palette-header h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+#palette-header .subtitle {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Tileset tabs */
+.tileset-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.tileset-tab {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.tileset-tab:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.tileset-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Recently used section */
+#recent-section {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+#recent-section h3 {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+#recent-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  min-height: 24px;
+}
+
+#recent-tiles:empty::after {
+  content: 'Paint to populate';
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* Palette zoom controls */
+#palette-zoom-controls {
+  float: right;
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.pal-zoom-btn {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.pal-zoom-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+#pal-zoom-level {
+  display: inline-block;
+  min-width: 24px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  vertical-align: middle;
+}
+
+/* Tile palette grid */
+#palette-grid {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+
+.palette-tile {
+  display: block;
+  image-rendering: pixelated;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.palette-tile:hover {
+  border-color: var(--accent);
+}
+
+.palette-tile.selected {
+  border-color: #fff;
+  outline: 1px solid var(--accent);
+}
+
+.recent-tile {
+  display: inline-block;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  vertical-align: top;
+}
+
+.recent-tile:hover {
+  border-color: var(--accent);
+}
+
+.recent-tile.selected {
+  border-color: #fff;
+  outline: 1px solid var(--accent);
+}
+
+/* === Center Panel - Scene Canvas === */
+#canvas-panel {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background: #0a0c12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+#canvas-container {
+  position: relative;
+  display: inline-block;
+  margin: 16px;
+  flex-shrink: 0;
+}
+
+#scene-canvas {
+  image-rendering: pixelated;
+  display: block;
+}
+
+#grid-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+#zone-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+/* Zoom controls */
+#zoom-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+}
+
+.zoom-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.zoom-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+#zoom-level {
+  line-height: 32px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+/* === Right Panel - Layers & Zones === */
+#properties-panel {
+  width: 280px;
+  min-width: 280px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#properties-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+#properties-header h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Section containers in right panel */
+.prop-section {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.prop-section h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+/* Layer list */
+.layer-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.layer-item:hover {
+  background: var(--surface-hover);
+}
+
+.layer-item.active {
+  border-color: var(--accent);
+  background: rgba(108, 92, 231, 0.1);
+}
+
+.layer-item .layer-name {
+  flex: 1;
+  margin: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.layer-item .layer-name:focus {
+  outline: 1px solid var(--accent);
+  background: var(--bg);
+  text-overflow: clip;
+}
+
+.layer-item .layer-type {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-right: 6px;
+}
+
+.layer-vis-btn,
+.layer-del-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.layer-vis-btn:hover { color: var(--text); }
+.layer-vis-btn.hidden { color: var(--danger); opacity: 0.5; }
+.layer-del-btn:hover { background: var(--danger); color: white; }
+
+.layer-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+/* Drag handle */
+.layer-drag-handle {
+  width: 18px;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 11px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.layer-drag-handle:hover { color: var(--text); }
+.layer-drag-handle:active { cursor: grabbing; }
+
+.layer-item.drag-over {
+  border-top: 2px solid var(--accent);
+}
+
+/* Zone list */
+.zone-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.zone-item .zone-name {
+  flex: 1;
+  margin: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zone-item .zone-type {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-right: 6px;
+}
+
+.zone-type-spawn { background: rgba(0, 184, 148, 0.2); color: var(--success); }
+.zone-type-exit { background: rgba(253, 203, 110, 0.2); color: var(--warning); }
+.zone-type-collision { background: rgba(225, 112, 85, 0.2); color: var(--danger); }
+.zone-type-trigger { background: rgba(108, 92, 231, 0.2); color: var(--accent); }
+
+.zone-del-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-dim);
+  transition: all 0.1s;
+}
+
+.zone-del-btn:hover { background: var(--danger); color: white; }
+
+/* Tile size buttons */
+.tile-size-buttons {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tile-size-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.tile-size-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.tile-size-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* Grid resize */
+.resize-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.resize-row label {
+  font-size: 12px;
+  color: var(--text-dim);
+  width: 50px;
+}
+
+.resize-row input {
+  width: 60px;
+  padding: 4px 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+
+.resize-row input:focus {
+  border-color: var(--accent);
+}
+
+/* Properties scrollable area */
+#properties-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* === Bottom Bar === */
+#bottom-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  gap: 8px;
+}
+
+.tool-group {
+  display: flex;
+  gap: 4px;
+}
+
+.tool-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tool-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+.tool-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.separator {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  margin: 0 6px;
+}
+
+.spacer { flex: 1; }
+
+.info-text {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-right: 8px;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+/* Modal prompt */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.visible {
+  display: flex;
+}
+
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  max-width: 400px;
+}
+
+.modal-box h3 {
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.modal-box p {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.status-banner {
+  padding: 12px 20px;
+  background: rgba(0, 184, 148, 0.1);
+  border-top: 1px solid rgba(0, 184, 148, 0.3);
+  color: var(--success);
+  font-size: 13px;
+  text-align: center;
+  display: none;
+}
+
+.status-banner.visible {
+  display: block;
+}
+
+/* Zone name prompt overlay */
+#zone-prompt {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+#zone-prompt.visible {
+  display: flex;
+}
+
+.prompt-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  min-width: 320px;
+}
+
+.prompt-dialog h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.prompt-dialog label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.prompt-dialog input,
+.prompt-dialog select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  margin-bottom: 12px;
+}
+
+.prompt-dialog input:focus,
+.prompt-dialog select:focus {
+  border-color: var(--accent);
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

@@ -1145,15 +1145,15 @@ function renderRecentTiles() {
     if (!info) continue;
 
     var canvas = document.createElement('canvas');
-    canvas.width = info.tw * 2;
-    canvas.height = info.th * 2;
+    canvas.width = info.tw * palZoom;
+    canvas.height = info.th * palZoom;
     canvas.className = 'recent-tile' + (gid === activeTile ? ' selected' : '');
     canvas.dataset.globalId = gid;
     canvas.title = info.tsName + ' #' + info.localIdx + ' (used ' + entries[i].count + 'x)';
 
     var ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(info.img, info.sx, info.sy, info.tw, info.th, 0, 0, info.tw * 2, info.th * 2);
+    ctx.drawImage(info.img, info.sx, info.sy, info.tw, info.th, 0, 0, info.tw * palZoom, info.th * palZoom);
 
     canvas.addEventListener('click', function() {
       selectTile(parseInt(this.dataset.globalId));
@@ -1541,6 +1541,7 @@ function palZoomIn() {
   palZoom++;
   document.getElementById('pal-zoom-level').textContent = palZoom + 'x';
   buildPaletteGrid(activeTilesetIndex);
+  renderRecentTiles();
 }
 
 function palZoomOut() {
@@ -1548,6 +1549,7 @@ function palZoomOut() {
   palZoom--;
   document.getElementById('pal-zoom-level').textContent = palZoom + 'x';
   buildPaletteGrid(activeTilesetIndex);
+  renderRecentTiles();
 }
 
 // ====== Grid Toggle ======

@@ -4,28 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sprite Sheet Inspector</title>
+<link rel="stylesheet" href="/ui/theme.css">
 <style>
-  :root {
-    --bg: #0f1118;
-    --surface: #1a1d2e;
-    --surface-hover: #242840;
-    --border: #2d3154;
-    --border-selected: #6c5ce7;
-    --accent: #6c5ce7;
-    --accent-glow: rgba(108, 92, 231, 0.3);
-    --text: #e8e6f0;
-    --text-dim: #8b89a0;
-    --tag-bg: #2d3154;
-    --success: #00b894;
-    --danger: #e17055;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
   body {
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: var(--bg);
-    color: var(--text);
     display: flex;
     height: 100vh;
     overflow: hidden;
@@ -449,39 +430,11 @@
     color: white;
   }
 
-  /* Buttons */
+  /* Buttons — page-specific overrides (base from theme.css) */
   .btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
     width: 100%;
     margin-bottom: 6px;
   }
-
-  .btn-accent {
-    background: var(--accent);
-    color: white;
-  }
-  .btn-accent:hover { filter: brightness(1.15); }
-  .btn-accent:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .btn-success {
-    background: var(--success);
-    color: white;
-  }
-  .btn-success:hover { filter: brightness(1.15); }
-  .btn-success:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .btn-outline {
-    background: transparent;
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  .btn-outline:hover { background: var(--surface-hover); }
 
   /* Send to Claude section */
   #send-section {
@@ -620,6 +573,7 @@
   </div>
 </div>
 
+<script src="/ui/tileset.js"></script>
 <script>
 const TILE_CONFIG = __TILE_CONFIG_PLACEHOLDER__;
 const IMAGE_PATH = "__IMAGE_PATH_PLACEHOLDER__";
@@ -673,20 +627,17 @@ img.onerror = function() {
 };
 img.src = '/inspector/image';
 
+// Thin wrappers around tileset.js functions (close over page globals)
 function getTileSourceXY(col, row) {
-  const sx = margin + col * (tileWidth + spacing);
-  const sy = margin + row * (tileHeight + spacing);
-  return { sx, sy };
+  return tileSourceXY(col, row, tileWidth, tileHeight, margin, spacing);
 }
 
 function getTileColRow(index) {
-  return { col: index % cols, row: Math.floor(index / cols) };
+  return tileColRow(index, cols);
 }
 
 function drawTileToCanvas(ctx, index, dx, dy, dw, dh) {
-  const { col, row } = getTileColRow(index);
-  const { sx, sy } = getTileSourceXY(col, row);
-  ctx.drawImage(img, sx, sy, tileWidth, tileHeight, dx, dy, dw, dh);
+  drawTile(ctx, img, index, cols, tileWidth, tileHeight, margin, spacing, dx, dy, dw, dh);
 }
 
 function buildGrid() {

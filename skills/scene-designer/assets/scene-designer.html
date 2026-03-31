@@ -44,7 +44,7 @@
   #palette-panel {
     width: 260px;
     min-width: 120px;
-    max-width: 40vw;
+    max-width: 80vw;
     background: var(--surface);
     border-right: 1px solid var(--border);
     display: flex;
@@ -185,6 +185,16 @@
     padding: 8px;
   }
 
+  #palette-grid.no-wrap {
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: auto;
+  }
+
+  #palette-grid.no-wrap .palette-tile {
+    white-space: normal;
+  }
+
   .palette-tile {
     display: inline-block;
     image-rendering: pixelated;
@@ -230,6 +240,7 @@
     align-items: center;
     justify-content: center;
     min-width: 0;
+    max-width: 100%;
   }
 
   #canvas-container {
@@ -1456,12 +1467,25 @@ function zoomOut() {
   renderScene();
 }
 
+// ====== Palette Wrap Mode ======
+function updatePaletteWrapMode() {
+  var panel = document.getElementById('palette-panel');
+  var grid = document.getElementById('palette-grid');
+  var threshold = window.innerWidth * 0.4;
+  if (panel.offsetWidth > threshold) {
+    grid.classList.add('no-wrap');
+  } else {
+    grid.classList.remove('no-wrap');
+  }
+}
+
 // ====== Palette Zoom ======
 function palZoomIn() {
   if (palZoom >= 8) return;
   palZoom++;
   document.getElementById('pal-zoom-level').textContent = palZoom + 'x';
   buildPaletteGrid(activeTilesetIndex);
+  updatePaletteWrapMode();
 }
 
 function palZoomOut() {
@@ -1469,6 +1493,7 @@ function palZoomOut() {
   palZoom--;
   document.getElementById('pal-zoom-level').textContent = palZoom + 'x';
   buildPaletteGrid(activeTilesetIndex);
+  updatePaletteWrapMode();
 }
 
 // ====== Grid Toggle ======
@@ -1804,8 +1829,9 @@ document.addEventListener('keydown', function(e) {
     if (!dragging) return;
     var newWidth = e.clientX;
     if (newWidth < 120) newWidth = 120;
-    if (newWidth > window.innerWidth * 0.4) newWidth = window.innerWidth * 0.4;
+    if (newWidth > window.innerWidth * 0.8) newWidth = window.innerWidth * 0.8;
     panel.style.width = newWidth + 'px';
+    updatePaletteWrapMode();
   });
 
   document.addEventListener('mouseup', function() {
@@ -1814,6 +1840,7 @@ document.addEventListener('keydown', function(e) {
     handle.classList.remove('dragging');
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
+    updatePaletteWrapMode();
   });
 })();
 

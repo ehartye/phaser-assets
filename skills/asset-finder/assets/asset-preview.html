@@ -4,30 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Game Asset Finder - Preview &amp; Select</title>
+<link rel="stylesheet" href="/ui/theme.css">
 <style>
-  :root {
-    --bg: #0f1118;
-    --surface: #1a1d2e;
-    --surface-hover: #242840;
-    --border: #2d3154;
-    --border-selected: #6c5ce7;
-    --accent: #6c5ce7;
-    --accent-glow: rgba(108, 92, 231, 0.3);
-    --text: #e8e6f0;
-    --text-dim: #8b89a0;
-    --tag-bg: #2d3154;
-    --success: #00b894;
-    --cc0: #00b894;
-    --ccby: #fdcb6e;
-    --other: #e17055;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
   body {
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: var(--bg);
-    color: var(--text);
     min-height: 100vh;
   }
 
@@ -69,30 +48,6 @@
     color: var(--text-dim);
     font-size: 14px;
   }
-
-  .btn {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-primary {
-    background: var(--accent);
-    color: white;
-  }
-  .btn-primary:hover { filter: brightness(1.15); }
-  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .btn-secondary {
-    background: var(--surface);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  .btn-secondary:hover { background: var(--surface-hover); }
 
   .filter-bar {
     padding: 16px 32px;

@@ -405,22 +405,25 @@
     margin-top: 6px;
   }
 
-  /* Reorder buttons */
-  .layer-move-btn {
-    width: 22px;
-    height: 22px;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 10px;
+  /* Drag handle */
+  .layer-drag-handle {
+    width: 18px;
+    cursor: grab;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
     color: var(--text-dim);
+    font-size: 11px;
+    flex-shrink: 0;
+    user-select: none;
   }
 
-  .layer-move-btn:hover { color: var(--text); }
+  .layer-drag-handle:hover { color: var(--text); }
+  .layer-drag-handle:active { cursor: grabbing; }
+
+  .layer-item.drag-over {
+    border-top: 2px solid var(--accent);
+  }
 
   /* Zone list */
   .zone-item {
@@ -1498,6 +1501,8 @@ function toggleGrid() {
 }
 
 // ====== Layers ======
+var _dragLayerIdx = -1;
+
 function renderLayers() {
   var container = document.getElementById('layer-list');
   container.innerHTML = '';
@@ -1507,27 +1512,55 @@ function renderLayers() {
       var layer = layers[idx];
       var div = document.createElement('div');
       div.className = 'layer-item' + (idx === activeLayerIndex ? ' active' : '');
-      div.addEventListener('click', function(e) {
-        if (e.target.closest('.layer-vis-btn') || e.target.closest('.layer-del-btn') || e.target.closest('.layer-move-btn')) return;
+      div.draggable = true;
+      div.dataset.idx = idx;
+
+      // Drag handle — clicking it selects the layer
+      var handle = document.createElement('span');
+      handle.className = 'layer-drag-handle';
+      handle.innerHTML = '&#9776;';
+      handle.title = 'Drag to reorder';
+      handle.addEventListener('click', function(e) {
+        e.stopPropagation();
         activeLayerIndex = idx;
         renderLayers();
       });
 
-      // Move up
-      var upBtn = document.createElement('button');
-      upBtn.className = 'layer-move-btn';
-      upBtn.innerHTML = '&#9650;';
-      upBtn.title = 'Move up';
-      upBtn.disabled = idx === 0;
-      upBtn.addEventListener('click', function() { moveLayer(idx, -1); });
-
-      // Move down
-      var downBtn = document.createElement('button');
-      downBtn.className = 'layer-move-btn';
-      downBtn.innerHTML = '&#9660;';
-      downBtn.title = 'Move down';
-      downBtn.disabled = idx === layers.length - 1;
-      downBtn.addEventListener('click', function() { moveLayer(idx, 1); });
+      // Drag events
+      div.addEventListener('dragstart', function(e) {
+        _dragLayerIdx = idx;
+        e.dataTransfer.effectAllowed = 'move';
+        this.style.opacity = '0.4';
+      });
+      div.addEventListener('dragend', function() {
+        this.style.opacity = '';
+        _dragLayerIdx = -1;
+        container.querySelectorAll('.layer-item').forEach(function(el) {
+          el.classList.remove('drag-over');
+        });
+      });
+      div.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        container.querySelectorAll('.layer-item').forEach(function(el) {
+          el.classList.remove('drag-over');
+        });
+        this.classList.add('drag-over');
+      });
+      div.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+        var targetIdx = parseInt(this.dataset.idx);
+        if (_dragLayerIdx < 0 || _dragLayerIdx === targetIdx) return;
+        var moved = layers.splice(_dragLayerIdx, 1)[0];
+        layers.splice(targetIdx, 0, moved);
+        if (activeLayerIndex === _dragLayerIdx) activeLayerIndex = targetIdx;
+        else if (_dragLayerIdx < activeLayerIndex && targetIdx >= activeLayerIndex) activeLayerIndex--;
+        else if (_dragLayerIdx > activeLayerIndex && targetIdx <= activeLayerIndex) activeLayerIndex++;
+        _dragLayerIdx = -1;
+        renderLayers();
+        renderScene();
+      });
 
       var name = document.createElement('span');
       name.className = 'layer-name';
@@ -1571,8 +1604,7 @@ function renderLayers() {
         renderScene();
       });
 
-      div.appendChild(upBtn);
-      div.appendChild(downBtn);
+      div.appendChild(handle);
       div.appendChild(name);
       div.appendChild(type);
       div.appendChild(visBtn);
@@ -1580,18 +1612,6 @@ function renderLayers() {
       container.appendChild(div);
     })(i);
   }
-}
-
-function moveLayer(idx, dir) {
-  var newIdx = idx + dir;
-  if (newIdx < 0 || newIdx >= layers.length) return;
-  var temp = layers[idx];
-  layers[idx] = layers[newIdx];
-  layers[newIdx] = temp;
-  if (activeLayerIndex === idx) activeLayerIndex = newIdx;
-  else if (activeLayerIndex === newIdx) activeLayerIndex = idx;
-  renderLayers();
-  renderScene();
 }
 
 function addLayer(type) {

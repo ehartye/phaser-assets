@@ -1983,8 +1983,8 @@ function _applyTileSizeScoped() {
 
 // ====== Scene Resize ======
 function _recomputeGrid() {
-  var newW = Math.floor(scenePixels.width / tileSize.width);
-  var newH = Math.floor(scenePixels.height / tileSize.height);
+  var newW = Math.ceil(scenePixels.width / tileSize.width);
+  var newH = Math.ceil(scenePixels.height / tileSize.height);
   if (newW < 1) newW = 1;
   if (newH < 1) newH = 1;
 

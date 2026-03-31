@@ -362,6 +362,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    cursor: text;
+    border-radius: 3px;
+    padding: 0 4px;
+  }
+
+  .layer-item .layer-name:focus {
+    outline: 1px solid var(--accent);
+    background: var(--bg);
+    text-overflow: clip;
   }
 
   .layer-item .layer-type {
@@ -1523,6 +1532,18 @@ function renderLayers() {
       var name = document.createElement('span');
       name.className = 'layer-name';
       name.textContent = layer.name;
+      name.contentEditable = true;
+      name.spellcheck = false;
+      name.addEventListener('blur', function() {
+        var newName = this.textContent.trim();
+        if (newName) layer.name = newName;
+        else this.textContent = layer.name;
+      });
+      name.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
+        if (e.key === 'Escape') { this.textContent = layer.name; this.blur(); }
+      });
+      name.addEventListener('click', function(e) { e.stopPropagation(); });
 
       var type = document.createElement('span');
       type.className = 'layer-type';

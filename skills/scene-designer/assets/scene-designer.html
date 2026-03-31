@@ -44,13 +44,14 @@
   #palette-panel {
     width: 260px;
     min-width: 120px;
-    max-width: 80vw;
+    max-width: 40vw;
     background: var(--surface);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     position: relative;
+    flex-shrink: 0;
   }
 
   #palette-resize-handle {
@@ -228,6 +229,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: 0;
   }
 
   #canvas-container {
@@ -1802,7 +1804,7 @@ document.addEventListener('keydown', function(e) {
     if (!dragging) return;
     var newWidth = e.clientX;
     if (newWidth < 120) newWidth = 120;
-    if (newWidth > window.innerWidth * 0.8) newWidth = window.innerWidth * 0.8;
+    if (newWidth > window.innerWidth * 0.4) newWidth = window.innerWidth * 0.4;
     panel.style.width = newWidth + 'px';
   });
 

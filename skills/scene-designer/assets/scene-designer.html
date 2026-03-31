@@ -898,20 +898,7 @@
   <button class="btn btn-success" id="send-btn" onclick="sendToClaude()">Send to Claude</button>
 </div>
 
-<!-- Tile Size Step 1: Scope -->
-<div class="modal-overlay" id="tile-size-scope">
-  <div class="modal-box">
-    <h3>Change tile size</h3>
-    <p>Apply to which layers?</p>
-    <div class="modal-actions">
-      <button class="btn btn-sm btn-outline" onclick="tileSizeScopeThis()">This layer</button>
-      <button class="btn btn-sm btn-outline" onclick="tileSizeScopeAll()">All layers</button>
-      <button class="btn btn-sm btn-outline" onclick="tileSizeScopeCancel()">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- Tile Size Step 2: Confirm clear -->
+<!-- Tile Size: Confirm clear -->
 <div class="modal-overlay" id="tile-size-confirm">
   <div class="modal-box">
     <h3>Clear existing tiles?</h3>
@@ -1011,16 +998,23 @@ function init() {
     btn.classList.toggle('active', parseInt(btn.textContent) === tileSize.width);
   });
 
-  // Ensure layers have valid data arrays
+  // Ensure layers have valid data arrays and per-layer tile size
   for (var i = 0; i < layers.length; i++) {
-    if (layers[i].type === 'tilelayer' && (!layers[i].data || layers[i].data.length !== grid.width * grid.height)) {
-      var newData = new Array(grid.width * grid.height).fill(0);
-      if (layers[i].data) {
-        for (var j = 0; j < Math.min(layers[i].data.length, newData.length); j++) {
-          newData[j] = layers[i].data[j];
+    if (layers[i].type === 'tilelayer') {
+      if (!layers[i].tileSize) layers[i].tileSize = tileSize.width;
+      var lc = _layerGridCols(layers[i]);
+      var lr = _layerGridRows(layers[i]);
+      var needed = lc * lr;
+      if (!layers[i].data || layers[i].data.length !== needed) {
+        var newData = new Array(needed).fill(0);
+        if (layers[i].data) {
+          for (var j = 0; j < Math.min(layers[i].data.length, needed); j++) {
+            newData[j] = layers[i].data[j];
+          }
         }
+        layers[i].data = newData;
       }
-      layers[i].data = newData;
+      layers[i]._prevCols = lc;
     }
     if (layers[i].visible === undefined) layers[i].visible = true;
   }
@@ -1280,10 +1274,57 @@ function getTileInfo(globalId) {
   return null;
 }
 
+function getTileInfoAt(globalId, ts_size) {
+  if (globalId <= 0) return null;
+  var gid = 1;
+  for (var i = 0; i < tilesetConfigs.length; i++) {
+    if (!tilesetReady[i]) continue;
+    var img = tilesetImages[i];
+    var margin = tilesetConfigs[i].margin || 0;
+    var spacing = tilesetConfigs[i].spacing || 0;
+    var tw = ts_size;
+    var th = ts_size;
+    var cols = Math.floor((img.width - margin + spacing) / (tw + spacing));
+    var rows = Math.floor((img.height - margin + spacing) / (th + spacing));
+    var count = cols * rows;
+    if (globalId >= gid && globalId < gid + count) {
+      var localIdx = globalId - gid;
+      var r = Math.floor(localIdx / cols);
+      var c = localIdx % cols;
+      return {
+        tsIdx: i,
+        tsName: tilesetConfigs[i].name,
+        localIdx: localIdx,
+        img: img,
+        sx: margin + c * (tw + spacing),
+        sy: margin + r * (th + spacing),
+        tw: tw, th: th,
+        cols: cols, rows: rows
+      };
+    }
+    gid += count;
+  }
+  return null;
+}
+
 // ====== Canvas Sizing ======
 function resizeCanvases() {
-  var w = grid.width * tileSize.width * zoom;
-  var h = grid.height * tileSize.height * zoom;
+  // Canvas must fit the largest layer (smallest tile size = most tiles)
+  var maxPxW = 0, maxPxH = 0;
+  for (var i = 0; i < layers.length; i++) {
+    if (layers[i].type !== 'tilelayer') continue;
+    var lts = _layerTileSize(layers[i]);
+    var lpxW = _layerGridCols(layers[i]) * lts;
+    var lpxH = _layerGridRows(layers[i]) * lts;
+    if (lpxW > maxPxW) maxPxW = lpxW;
+    if (lpxH > maxPxH) maxPxH = lpxH;
+  }
+  // Fallback to active layer
+  if (maxPxW === 0) maxPxW = grid.width * tileSize.width;
+  if (maxPxH === 0) maxPxH = grid.height * tileSize.height;
+
+  var w = maxPxW * zoom;
+  var h = maxPxH * zoom;
 
   sceneCanvas.width = w;
   sceneCanvas.height = h;
@@ -1309,26 +1350,31 @@ function renderScene() {
     }
   }
 
-  // Render tile layers bottom-to-top
+  // Render tile layers bottom-to-top (each at its own tile size)
   for (var li = 0; li < layers.length; li++) {
     var layer = layers[li];
     if (!layer.visible || layer.type !== 'tilelayer') continue;
     if (!layer.data) continue;
 
+    var lts = _layerTileSize(layer);
+    var lcw = lts * zoom;
+    var lch = lts * zoom;
+    var lcols = _layerGridCols(layer);
+
     for (var idx = 0; idx < layer.data.length; idx++) {
       var gid = layer.data[idx];
       if (gid <= 0) continue;
 
-      var info = getTileInfo(gid);
+      var info = getTileInfoAt(gid, lts);
       if (!info) continue;
 
-      var col = idx % grid.width;
-      var row = Math.floor(idx / grid.width);
+      var col = idx % lcols;
+      var row = Math.floor(idx / lcols);
 
       sceneCtx.drawImage(
         info.img,
         info.sx, info.sy, info.tw, info.th,
-        col * cw, row * ch, cw, ch
+        col * lcw, row * lch, lcw, lch
       );
     }
   }
@@ -1681,6 +1727,7 @@ function renderLayers() {
       handle.addEventListener('click', function(e) {
         e.stopPropagation();
         activeLayerIndex = idx;
+        syncToActiveLayer();
         renderLayers();
       });
 
@@ -1784,13 +1831,18 @@ function addLayer(type) {
   };
 
   if (type === 'tilelayer') {
-    layer.data = new Array(grid.width * grid.height).fill(0);
+    layer.tileSize = tileSize.width;
+    var lc = _layerGridCols(layer);
+    var lr = _layerGridRows(layer);
+    layer.data = new Array(lc * lr).fill(0);
+    layer._prevCols = lc;
   } else {
     layer.objects = [];
   }
 
   layers.push(layer);
   activeLayerIndex = layers.length - 1;
+  syncToActiveLayer();
   renderLayers();
 
   // Allow inline rename
@@ -1893,6 +1945,56 @@ document.getElementById('zone-name-input').addEventListener('keydown', function(
 });
 
 // ====== Tile Size ======
+// ====== Sync UI to Active Layer ======
+function syncToActiveLayer() {
+  var layer = layers[activeLayerIndex];
+  if (!layer || layer.type !== 'tilelayer') return;
+
+  var size = _layerTileSize(layer);
+  var oldSize = tileSize.width;
+
+  if (size !== oldSize) {
+    recentTilesBySize[oldSize] = recentTiles;
+    activeTileBySize[oldSize] = activeTile;
+
+    tileSize.width = size;
+    tileSize.height = size;
+    for (var i = 0; i < tilesetConfigs.length; i++) {
+      tilesetConfigs[i].tile_width = size;
+      tilesetConfigs[i].tile_height = size;
+    }
+
+    recentTiles = recentTilesBySize[size] || {};
+    activeTile = activeTileBySize[size] || 0;
+
+    grid.width = _layerGridCols(layer);
+    grid.height = _layerGridRows(layer);
+
+    document.querySelectorAll('.tile-size-btn').forEach(function(btn) {
+      btn.classList.toggle('active', parseInt(btn.textContent) === size);
+    });
+    updateGridTileInfo();
+    loadTilesets();
+    renderRecentTiles();
+    resizeCanvases();
+    renderScene();
+  }
+}
+
+// ====== Per-Layer Tile Size ======
+
+function _layerTileSize(layer) {
+  return layer.tileSize || tileSize.width;
+}
+
+function _layerGridCols(layer) {
+  return Math.ceil(scenePixels.width / _layerTileSize(layer));
+}
+
+function _layerGridRows(layer) {
+  return Math.ceil(scenePixels.height / _layerTileSize(layer));
+}
+
 function _hasTileData(layerIdx) {
   var layer = layers[layerIdx];
   if (!layer || layer.type !== 'tilelayer' || !layer.data) return false;
@@ -1902,28 +2004,71 @@ function _hasTileData(layerIdx) {
   return false;
 }
 
-function _anyLayerHasTiles() {
-  for (var i = 0; i < layers.length; i++) {
-    if (_hasTileData(i)) return true;
-  }
-  return false;
-}
-
 function _clearLayerData(layerIdx) {
   var layer = layers[layerIdx];
-  if (layer && layer.type === 'tilelayer' && layer.data) {
-    layer.data = new Array(grid.width * grid.height).fill(0);
+  if (layer && layer.type === 'tilelayer') {
+    var cols = _layerGridCols(layer);
+    var rows = _layerGridRows(layer);
+    layer.data = new Array(cols * rows).fill(0);
   }
 }
 
-function _applyTileSize(size) {
-  var oldSize = tileSize.width;
+function _resizeLayerData(layer) {
+  var cols = _layerGridCols(layer);
+  var rows = _layerGridRows(layer);
+  var needed = cols * rows;
+  if (!layer.data || layer.data.length === needed) return;
+  // Grow or shrink — preserve top-left data
+  var oldCols = layer._prevCols || cols;
+  var oldData = layer.data;
+  var newData = new Array(needed).fill(0);
+  var copyC = Math.min(oldCols, cols);
+  var copyR = Math.min(Math.floor(oldData.length / oldCols), rows);
+  for (var r = 0; r < copyR; r++) {
+    for (var c = 0; c < copyC; c++) {
+      newData[r * cols + c] = oldData[r * oldCols + c];
+    }
+  }
+  layer.data = newData;
+  layer._prevCols = cols;
+}
+
+function setTileSize(size) {
+  var layer = layers[activeLayerIndex];
+  if (!layer || layer.type !== 'tilelayer') return;
+  if (_layerTileSize(layer) === size) return;
+
+  if (_hasTileData(activeLayerIndex)) {
+    _pendingTileSize = size;
+    document.getElementById('tile-size-confirm').classList.add('visible');
+  } else {
+    _applyLayerTileSize(activeLayerIndex, size);
+  }
+}
+
+var _pendingTileSize = 0;
+
+function tileSizeConfirmClear() {
+  document.getElementById('tile-size-confirm').classList.remove('visible');
+  _clearLayerData(activeLayerIndex);
+  _applyLayerTileSize(activeLayerIndex, _pendingTileSize);
+}
+
+function tileSizeConfirmCancel() {
+  document.getElementById('tile-size-confirm').classList.remove('visible');
+}
+
+function _applyLayerTileSize(layerIdx, size) {
+  var layer = layers[layerIdx];
+  var oldSize = _layerTileSize(layer);
   recentTilesBySize[oldSize] = recentTiles;
   activeTileBySize[oldSize] = activeTile;
 
+  layer.tileSize = size;
+
+  // Update active tile size to match active layer
   tileSize.width = size;
   tileSize.height = size;
-
   for (var i = 0; i < tilesetConfigs.length; i++) {
     tilesetConfigs[i].tile_width = size;
     tilesetConfigs[i].tile_height = size;
@@ -1932,105 +2077,24 @@ function _applyTileSize(size) {
   recentTiles = recentTilesBySize[size] || {};
   activeTile = activeTileBySize[size] || 0;
 
+  // Resize this layer's data to new grid dimensions
+  _resizeLayerData(layer);
+
+  // Update grid to match active layer (for painting/cursor)
+  grid.width = _layerGridCols(layer);
+  grid.height = _layerGridRows(layer);
+
   document.querySelectorAll('.tile-size-btn').forEach(function(btn) {
     btn.classList.toggle('active', parseInt(btn.textContent) === size);
   });
-
-  // Recompute grid from stable pixel dimensions
-  _recomputeGrid();
-
+  updateGridTileInfo();
   loadTilesets();
   renderRecentTiles();
   resizeCanvases();
   renderScene();
 }
 
-var _pendingTileSize = 0;
-var _pendingTileSizeScope = ''; // 'this' or 'all'
-
-function setTileSize(size) {
-  if (size === tileSize.width) return;
-  _pendingTileSize = size;
-  // Step 1: ask scope
-  document.getElementById('tile-size-scope').classList.add('visible');
-}
-
-function tileSizeScopeThis() {
-  _pendingTileSizeScope = 'this';
-  document.getElementById('tile-size-scope').classList.remove('visible');
-  if (_hasTileData(activeLayerIndex)) {
-    // Step 2: confirm clear
-    document.getElementById('tile-size-confirm').classList.add('visible');
-  } else {
-    _applyTileSizeScoped();
-  }
-}
-
-function tileSizeScopeAll() {
-  _pendingTileSizeScope = 'all';
-  document.getElementById('tile-size-scope').classList.remove('visible');
-  if (_anyLayerHasTiles()) {
-    // Step 2: confirm clear
-    document.getElementById('tile-size-confirm').classList.add('visible');
-  } else {
-    _applyTileSizeScoped();
-  }
-}
-
-function tileSizeScopeCancel() {
-  document.getElementById('tile-size-scope').classList.remove('visible');
-}
-
-function tileSizeConfirmClear() {
-  if (_pendingTileSizeScope === 'this') {
-    _clearLayerData(activeLayerIndex);
-  } else {
-    for (var i = 0; i < layers.length; i++) {
-      _clearLayerData(i);
-    }
-  }
-  document.getElementById('tile-size-confirm').classList.remove('visible');
-  _applyTileSizeScoped();
-}
-
-function tileSizeConfirmCancel() {
-  document.getElementById('tile-size-confirm').classList.remove('visible');
-}
-
-function _applyTileSizeScoped() {
-  _applyTileSize(_pendingTileSize);
-}
-
 // ====== Scene Resize ======
-function _recomputeGrid() {
-  var newW = Math.ceil(scenePixels.width / tileSize.width);
-  var newH = Math.ceil(scenePixels.height / tileSize.height);
-  if (newW < 1) newW = 1;
-  if (newH < 1) newH = 1;
-
-  var oldW = grid.width;
-  var oldH = grid.height;
-
-  if (newW !== oldW || newH !== oldH) {
-    for (var i = 0; i < layers.length; i++) {
-      if (layers[i].type !== 'tilelayer' || !layers[i].data) continue;
-      var newData = new Array(newW * newH).fill(0);
-      var copyW = Math.min(oldW, newW);
-      var copyH = Math.min(oldH, newH);
-      for (var r = 0; r < copyH; r++) {
-        for (var c = 0; c < copyW; c++) {
-          newData[r * newW + c] = layers[i].data[r * oldW + c];
-        }
-      }
-      layers[i].data = newData;
-    }
-    grid.width = newW;
-    grid.height = newH;
-  }
-
-  updateGridTileInfo();
-}
-
 function resizeScene() {
   var newW = parseInt(document.getElementById('scene-width-px').value);
   var newH = parseInt(document.getElementById('scene-height-px').value);
@@ -2038,7 +2102,22 @@ function resizeScene() {
 
   scenePixels.width = newW;
   scenePixels.height = newH;
-  _recomputeGrid();
+
+  // Resize each layer's data to its new grid dimensions
+  for (var i = 0; i < layers.length; i++) {
+    if (layers[i].type === 'tilelayer') {
+      _resizeLayerData(layers[i]);
+    }
+  }
+
+  // Update active grid
+  var active = layers[activeLayerIndex];
+  if (active && active.type === 'tilelayer') {
+    grid.width = _layerGridCols(active);
+    grid.height = _layerGridRows(active);
+  }
+
+  updateGridTileInfo();
   resizeCanvases();
   renderScene();
 }
@@ -2049,9 +2128,15 @@ function sendToClaude() {
     grid: grid,
     tile_size: tileSize,
     tilesets: tilesetConfigs,
+    scene_pixels: scenePixels,
     layers: layers.map(function(l) {
       var out = { name: l.name, type: l.type };
-      if (l.type === 'tilelayer') out.data = Array.from(l.data);
+      if (l.type === 'tilelayer') {
+        out.data = Array.from(l.data);
+        out.tileSize = l.tileSize || tileSize.width;
+        out.gridCols = _layerGridCols(l);
+        out.gridRows = _layerGridRows(l);
+      }
       if (l.type === 'objectgroup') out.objects = l.objects || [];
       return out;
     }),

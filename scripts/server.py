@@ -216,6 +216,28 @@ class AssetHandler(BaseHTTPRequestHandler, *_base_mixins):
         self.end_headers()
         self.wfile.write(data)
 
+    def serve_ui_file(self, filename):
+        """Serve a static file from scripts/ui/."""
+        if "/" in filename or "\\" in filename or filename.startswith("."):
+            self.send_json({"error": "forbidden"}, 403)
+            return
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        full_path = os.path.join(script_dir, "ui", filename)
+        if not os.path.isfile(full_path):
+            self.send_json({"error": "not found"}, 404)
+            return
+        ext = os.path.splitext(filename)[1].lower()
+        ct = {".css": "text/css", ".js": "application/javascript"}.get(ext, "text/plain")
+        with open(full_path, "r", encoding="utf-8") as f:
+            data = f.read().encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", ct)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(data)
+
     # ---- CORS preflight ---------------------------------------------------
 
     def do_OPTIONS(self):
@@ -229,6 +251,9 @@ class AssetHandler(BaseHTTPRequestHandler, *_base_mixins):
 
     def do_GET(self):
         path = self.path.split("?")[0]
+        if path.startswith("/ui/"):
+            self.serve_ui_file(path[4:])
+            return
         handler = self._get_routes.get(path)
         if handler:
             getattr(self, handler)()

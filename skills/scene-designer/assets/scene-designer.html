@@ -1520,7 +1520,7 @@ function setTool(tool) {
 
 // ====== Zoom ======
 function zoomIn() {
-  if (zoom >= 8) return;
+  if (zoom >= 16) return;
   zoom++;
   document.getElementById('zoom-level').textContent = zoom + 'x';
   resizeCanvases();

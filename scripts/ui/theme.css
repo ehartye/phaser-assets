@@ -1,0 +1,90 @@
+/* ============================================================
+   Shared design tokens and base styles
+   Used by: asset-preview, sprite-inspector, scene-designer
+   ============================================================ */
+
+:root {
+  --bg: #0f1118;
+  --surface: #1a1d2e;
+  --surface-hover: #242840;
+  --border: #2d3154;
+  --border-selected: #6c5ce7;
+  --accent: #6c5ce7;
+  --accent-glow: rgba(108, 92, 231, 0.3);
+  --text: #e8e6f0;
+  --text-dim: #8b89a0;
+  --tag-bg: #2d3154;
+  --success: #00b894;
+  --danger: #e17055;
+  --warning: #fdcb6e;
+  /* asset-preview extras */
+  --cc0: #00b894;
+  --ccby: #fdcb6e;
+  --other: #e17055;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ---- Buttons ---- */
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* accent / primary (purple) */
+.btn-accent,
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+.btn-accent:hover:not(:disabled),
+.btn-primary:hover:not(:disabled) { filter: brightness(1.15); }
+
+/* success (green) */
+.btn-success {
+  background: var(--success);
+  color: white;
+}
+.btn-success:hover:not(:disabled) { filter: brightness(1.15); }
+
+/* outline / secondary */
+.btn-outline,
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled) { background: var(--surface-hover); }
+
+/* ---- Toggle buttons ---- */
+
+.toggle-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.toggle-btn:hover { color: var(--text); }
+.toggle-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}

@@ -42,16 +42,14 @@
 
   /* === Left Panel - Tileset Palette === */
   #palette-panel {
-    width: 260px;
-    min-width: 120px;
-    max-width: 80vw;
+    max-width: 40vw;
     background: var(--surface);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    position: relative;
     flex-shrink: 0;
+    position: relative;
   }
 
   #palette-resize-handle {
@@ -183,25 +181,16 @@
     flex: 1;
     overflow: auto;
     padding: 8px;
-  }
-
-  #palette-grid.no-wrap {
-    white-space: nowrap;
-    overflow-x: auto;
-    overflow-y: auto;
-  }
-
-  #palette-grid.no-wrap .palette-tile {
-    white-space: normal;
+    display: grid;
+    gap: 2px;
+    align-content: start;
   }
 
   .palette-tile {
-    display: inline-block;
+    display: block;
     image-rendering: pixelated;
     border: 1px solid transparent;
     cursor: pointer;
-    margin: 1px;
-    vertical-align: top;
   }
 
   .palette-tile:hover {
@@ -1001,6 +990,16 @@ function buildPaletteGrid(tsIdx) {
   var cols = Math.floor((img.width - margin + spacing) / (tw + spacing));
   var rows = Math.floor((img.height - margin + spacing) / (th + spacing));
 
+  // Set grid columns to match spritesheet layout
+  var tilePx = tw * palZoom + 4; // tile canvas + border + gap
+  container.style.gridTemplateColumns = 'repeat(' + cols + ', ' + (tw * palZoom + 2) + 'px)';
+
+  // Size the palette panel to fit the spritesheet columns (+ padding/border)
+  var panelWidth = cols * tilePx + 24; // 8px padding each side + some buffer
+  var panel = document.getElementById('palette-panel');
+  var maxWidth = window.innerWidth * 0.4;
+  panel.style.width = Math.min(panelWidth, maxWidth) + 'px';
+
   for (var r = 0; r < rows; r++) {
     for (var c = 0; c < cols; c++) {
       var tileIdx = r * cols + c;
@@ -1467,25 +1466,12 @@ function zoomOut() {
   renderScene();
 }
 
-// ====== Palette Wrap Mode ======
-function updatePaletteWrapMode() {
-  var panel = document.getElementById('palette-panel');
-  var grid = document.getElementById('palette-grid');
-  var threshold = window.innerWidth * 0.4;
-  if (panel.offsetWidth > threshold) {
-    grid.classList.add('no-wrap');
-  } else {
-    grid.classList.remove('no-wrap');
-  }
-}
-
 // ====== Palette Zoom ======
 function palZoomIn() {
   if (palZoom >= 8) return;
   palZoom++;
   document.getElementById('pal-zoom-level').textContent = palZoom + 'x';
   buildPaletteGrid(activeTilesetIndex);
-  updatePaletteWrapMode();
 }
 
 function palZoomOut() {
@@ -1493,7 +1479,6 @@ function palZoomOut() {
   palZoom--;
   document.getElementById('pal-zoom-level').textContent = palZoom + 'x';
   buildPaletteGrid(activeTilesetIndex);
-  updatePaletteWrapMode();
 }
 
 // ====== Grid Toggle ======
@@ -1828,10 +1813,10 @@ document.addEventListener('keydown', function(e) {
   document.addEventListener('mousemove', function(e) {
     if (!dragging) return;
     var newWidth = e.clientX;
+    var maxWidth = window.innerWidth * 0.4;
     if (newWidth < 120) newWidth = 120;
-    if (newWidth > window.innerWidth * 0.8) newWidth = window.innerWidth * 0.8;
+    if (newWidth > maxWidth) newWidth = maxWidth;
     panel.style.width = newWidth + 'px';
-    updatePaletteWrapMode();
   });
 
   document.addEventListener('mouseup', function() {
@@ -1840,7 +1825,6 @@ document.addEventListener('keydown', function(e) {
     handle.classList.remove('dragging');
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    updatePaletteWrapMode();
   });
 })();
 

@@ -663,6 +663,45 @@
   }
 
   /* Status banner */
+  /* Modal prompt */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.visible {
+    display: flex;
+  }
+
+  .modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    max-width: 400px;
+  }
+
+  .modal-box h3 {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .modal-box p {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+  }
+
   .status-banner {
     padding: 12px 20px;
     background: rgba(0, 184, 148, 0.1);
@@ -855,6 +894,19 @@
 
   <button class="btn btn-accent" onclick="exportTiled()">Export Tiled JSON</button>
   <button class="btn btn-success" id="send-btn" onclick="sendToClaude()">Send to Claude</button>
+</div>
+
+<!-- Tile Size Change Prompt -->
+<div class="modal-overlay" id="tile-size-prompt">
+  <div class="modal-box">
+    <h3>Layers contain tile data</h3>
+    <p>Changing tile size will invalidate existing tiles. Clear layer data to continue?</p>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-outline" onclick="tileSizeClearThis()">Clear this layer</button>
+      <button class="btn btn-sm btn-outline" style="border-color:var(--danger);color:var(--danger)" onclick="tileSizeClearAll()">Clear all layers</button>
+      <button class="btn btn-sm btn-outline" onclick="tileSizeCancel()">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <!-- Status Banner -->
@@ -1796,8 +1848,30 @@ document.getElementById('zone-name-input').addEventListener('keydown', function(
 });
 
 // ====== Tile Size ======
-function setTileSize(size) {
-  // Save current state for the old size
+function _hasTileData(layerIdx) {
+  var layer = layers[layerIdx];
+  if (!layer || layer.type !== 'tilelayer' || !layer.data) return false;
+  for (var i = 0; i < layer.data.length; i++) {
+    if (layer.data[i] > 0) return true;
+  }
+  return false;
+}
+
+function _anyLayerHasTiles() {
+  for (var i = 0; i < layers.length; i++) {
+    if (_hasTileData(i)) return true;
+  }
+  return false;
+}
+
+function _clearLayerData(layerIdx) {
+  var layer = layers[layerIdx];
+  if (layer && layer.type === 'tilelayer' && layer.data) {
+    layer.data = new Array(grid.width * grid.height).fill(0);
+  }
+}
+
+function _applyTileSize(size) {
   var oldSize = tileSize.width;
   recentTilesBySize[oldSize] = recentTiles;
   activeTileBySize[oldSize] = activeTile;
@@ -1810,11 +1884,9 @@ function setTileSize(size) {
     tilesetConfigs[i].tile_height = size;
   }
 
-  // Restore state for the new size
   recentTiles = recentTilesBySize[size] || {};
   activeTile = activeTileBySize[size] || 0;
 
-  // Highlight active button
   document.querySelectorAll('.tile-size-btn').forEach(function(btn) {
     btn.classList.toggle('active', parseInt(btn.textContent) === size);
   });
@@ -1823,6 +1895,39 @@ function setTileSize(size) {
   renderRecentTiles();
   resizeCanvases();
   renderScene();
+}
+
+function setTileSize(size) {
+  if (size === tileSize.width) return;
+
+  if (!_anyLayerHasTiles()) {
+    _applyTileSize(size);
+    return;
+  }
+
+  // Show clear prompt
+  _pendingTileSize = size;
+  document.getElementById('tile-size-prompt').classList.add('visible');
+}
+
+var _pendingTileSize = 0;
+
+function tileSizeClearThis() {
+  _clearLayerData(activeLayerIndex);
+  _applyTileSize(_pendingTileSize);
+  document.getElementById('tile-size-prompt').classList.remove('visible');
+}
+
+function tileSizeClearAll() {
+  for (var i = 0; i < layers.length; i++) {
+    _clearLayerData(i);
+  }
+  _applyTileSize(_pendingTileSize);
+  document.getElementById('tile-size-prompt').classList.remove('visible');
+}
+
+function tileSizeCancel() {
+  document.getElementById('tile-size-prompt').classList.remove('visible');
 }
 
 // ====== Grid Resize ======

@@ -5,6 +5,9 @@
 asset-preview-*.html
 asset-selections-*.json
 
+# Downloaded game assets (project-specific, re-fetchable)
+assets/
+
 # OS files
 .DS_Store
 Thumbs.db

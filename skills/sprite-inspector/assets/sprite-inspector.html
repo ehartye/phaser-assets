@@ -1019,6 +1019,34 @@ function deleteAnimation(name) {
   updateSendButton();
 }
 
+function loadAnimationForEditing(name) {
+  const anim = savedAnimations[name];
+  if (!anim) return;
+
+  // Switch to the sheet this animation belongs to
+  if (anim.sheet) {
+    const sheetIdx = SHEETS.findIndex(function(s) { return s.image_path === anim.sheet; });
+    if (sheetIdx >= 0 && sheetIdx !== activeSheetIdx) {
+      switchSheet(sheetIdx);
+    }
+  }
+
+  // Populate editor fields
+  document.getElementById('anim-name').value = name;
+  document.getElementById('anim-fps').value = anim.frameRate;
+  document.getElementById('anim-loop').checked = anim.loop;
+  animFrames = anim.frames.slice();
+
+  // Remove from saved so saving it again replaces cleanly
+  delete savedAnimations[name];
+
+  renderAnimFrames();
+  updateAnimPreview();
+  renderSavedAnimations();
+  updateGridHighlights();
+  updateSendButton();
+}
+
 function renderSavedAnimations() {
   const container = document.getElementById('saved-anims');
   container.innerHTML = '';
@@ -1055,11 +1083,17 @@ function renderSavedAnimations() {
       info.appendChild(nameEl);
       info.appendChild(detail);
 
+      const editBtn = document.createElement('button');
+      editBtn.textContent = 'Edit';
+      editBtn.style.cssText = 'margin-right:4px;';
+      editBtn.addEventListener('click', function() { loadAnimationForEditing(name); });
+
       const deleteBtn = document.createElement('button');
       deleteBtn.textContent = 'Delete';
       deleteBtn.addEventListener('click', function() { deleteAnimation(name); });
 
       item.appendChild(info);
+      item.appendChild(editBtn);
       item.appendChild(deleteBtn);
       container.appendChild(item);
     });

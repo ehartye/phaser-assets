@@ -7,7 +7,7 @@ Each module exports:
 
 import importlib
 
-_MODULE_NAMES = ["health", "asset_finder", "inspector", "scene_designer", "itch_io"]
+_MODULE_NAMES = ["health", "asset_finder", "inspector", "scene_designer", "itch_io", "assets"]
 
 
 def _load_modules():

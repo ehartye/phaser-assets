@@ -124,6 +124,7 @@ from routes import collect_routes  # noqa: E402
 from routes.health import HealthRoutes  # noqa: E402
 from routes.asset_finder import AssetFinderRoutes  # noqa: E402
 from routes.inspector import InspectorRoutes  # noqa: E402
+from routes.assets import AssetsRoutes  # noqa: E402
 
 # Scene designer module is optional until created
 try:
@@ -131,7 +132,7 @@ try:
 except ModuleNotFoundError:
     SceneDesignerRoutes = None
 
-_base_mixins = [HealthRoutes, AssetFinderRoutes, InspectorRoutes]
+_base_mixins = [HealthRoutes, AssetFinderRoutes, InspectorRoutes, AssetsRoutes]
 if SceneDesignerRoutes is not None:
     _base_mixins.append(SceneDesignerRoutes)
 

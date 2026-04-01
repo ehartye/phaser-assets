@@ -430,6 +430,21 @@
     color: white;
   }
 
+  /* Tile config row */
+  .tile-cfg-row {
+    margin-bottom: 12px;
+  }
+
+  .tile-cfg-row .field {
+    margin-bottom: 0;
+  }
+
+  .tile-cfg-row input[type="number"] {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
   /* Buttons — page-specific overrides (base from theme.css) */
   .btn {
     width: 100%;
@@ -491,6 +506,24 @@
   <div id="mode-content">
     <!-- Animation Mode -->
     <div id="animation-panel" class="mode-panel active">
+      <div class="field-row tile-cfg-row">
+        <div class="field">
+          <label>Tile W</label>
+          <input type="number" class="tile-cfg-input" data-mode="animation" data-key="tile_width" value="32" min="1" max="512">
+        </div>
+        <div class="field">
+          <label>Tile H</label>
+          <input type="number" class="tile-cfg-input" data-mode="animation" data-key="tile_height" value="32" min="1" max="512">
+        </div>
+        <div class="field">
+          <label>Margin</label>
+          <input type="number" class="tile-cfg-input" data-mode="animation" data-key="margin" value="0" min="0">
+        </div>
+        <div class="field">
+          <label>Spacing</label>
+          <input type="number" class="tile-cfg-input" data-mode="animation" data-key="spacing" value="0" min="0">
+        </div>
+      </div>
       <div class="field">
         <label>Animation Name</label>
         <input type="text" id="anim-name" placeholder="e.g. idle, walk, attack">
@@ -524,6 +557,24 @@
 
     <!-- Selection Mode -->
     <div id="selection-panel" class="mode-panel">
+      <div class="field-row tile-cfg-row">
+        <div class="field">
+          <label>Tile W</label>
+          <input type="number" class="tile-cfg-input" data-mode="selection" data-key="tile_width" value="32" min="1" max="512">
+        </div>
+        <div class="field">
+          <label>Tile H</label>
+          <input type="number" class="tile-cfg-input" data-mode="selection" data-key="tile_height" value="32" min="1" max="512">
+        </div>
+        <div class="field">
+          <label>Margin</label>
+          <input type="number" class="tile-cfg-input" data-mode="selection" data-key="margin" value="0" min="0">
+        </div>
+        <div class="field">
+          <label>Spacing</label>
+          <input type="number" class="tile-cfg-input" data-mode="selection" data-key="spacing" value="0" min="0">
+        </div>
+      </div>
       <div class="field">
         <label>Batch Name</label>
         <input type="text" id="sel-name" placeholder="e.g. weapons, potions, coins">
@@ -542,6 +593,24 @@
 
     <!-- Layer Mode -->
     <div id="layer-panel" class="mode-panel">
+      <div class="field-row tile-cfg-row">
+        <div class="field">
+          <label>Tile W</label>
+          <input type="number" class="tile-cfg-input" data-mode="layer" data-key="tile_width" value="32" min="1" max="512">
+        </div>
+        <div class="field">
+          <label>Tile H</label>
+          <input type="number" class="tile-cfg-input" data-mode="layer" data-key="tile_height" value="32" min="1" max="512">
+        </div>
+        <div class="field">
+          <label>Margin</label>
+          <input type="number" class="tile-cfg-input" data-mode="layer" data-key="margin" value="0" min="0">
+        </div>
+        <div class="field">
+          <label>Spacing</label>
+          <input type="number" class="tile-cfg-input" data-mode="layer" data-key="spacing" value="0" min="0">
+        </div>
+      </div>
       <div class="field">
         <label>Composition Name</label>
         <input type="text" id="comp-name" placeholder="e.g. player, enemy_mage">
@@ -583,6 +652,28 @@ const tileHeight = TILE_CONFIG.tile_height || 32;
 const margin = TILE_CONFIG.margin || 0;
 const spacing = TILE_CONFIG.spacing || 0;
 
+// Per-mode tile config
+var _defaultCfg = { tile_width: tileWidth, tile_height: tileHeight, margin: margin, spacing: spacing };
+var modeCfgs = {
+  animation: Object.assign({}, _defaultCfg),
+  layer:     Object.assign({}, _defaultCfg),
+  selection: Object.assign({}, _defaultCfg),
+};
+function activeCfg() { return modeCfgs[currentMode]; }
+
+function syncTileCfgInputs() {
+  var cfg = activeCfg();
+  document.querySelectorAll('.tile-cfg-input[data-mode="' + currentMode + '"]').forEach(function(inp) {
+    inp.value = cfg[inp.dataset.key];
+  });
+}
+
+function updateGridHeader() {
+  var cfg = activeCfg();
+  document.getElementById('grid-header').textContent =
+    cols * rows + ' tiles (' + cols + ' x ' + rows + ') — ' + cfg.tile_width + 'x' + cfg.tile_height + 'px each';
+}
+
 let img, cols, rows;
 let currentMode = 'animation';
 
@@ -614,23 +705,26 @@ composePreviewCtx.imageSmoothingEnabled = false;
 img = new Image();
 img.crossOrigin = 'anonymous';
 img.onload = function() {
-  var layout = sheetLayout(img.width, img.height, tileWidth, tileHeight, margin, spacing);
+  var cfg = activeCfg();
+  var layout = sheetLayout(img.width, img.height, cfg.tile_width, cfg.tile_height, cfg.margin, cfg.spacing);
   cols = layout.cols;
   rows = layout.rows;
-  document.getElementById('grid-header').textContent =
-    cols * rows + ' tiles (' + cols + ' x ' + rows + ') — ' + tileWidth + 'x' + tileHeight + 'px each';
+  updateGridHeader();
   document.getElementById('sheet-info').textContent =
     IMAGE_PATH + ' — ' + img.width + 'x' + img.height + 'px';
   buildGrid();
+  // Sync tile config inputs with initial values
+  syncTileCfgInputs();
 };
 img.onerror = function() {
   document.getElementById('grid-header').textContent = 'Failed to load sprite sheet image';
 };
 img.src = '/inspector/image';
 
-// Thin wrappers around tileset.js functions (close over page globals)
+// Thin wrappers around tileset.js functions — use activeCfg() for per-mode tile config
 function getTileSourceXY(col, row) {
-  return tileSourceXY(col, row, tileWidth, tileHeight, margin, spacing);
+  var cfg = activeCfg();
+  return tileSourceXY(col, row, cfg.tile_width, cfg.tile_height, cfg.margin, cfg.spacing);
 }
 
 function getTileColRow(index) {
@@ -638,10 +732,12 @@ function getTileColRow(index) {
 }
 
 function drawTileToCanvas(ctx, index, dx, dy, dw, dh) {
-  drawTile(ctx, img, index, cols, tileWidth, tileHeight, margin, spacing, dx, dy, dw, dh);
+  var cfg = activeCfg();
+  drawTile(ctx, img, index, cols, cfg.tile_width, cfg.tile_height, cfg.margin, cfg.spacing, dx, dy, dw, dh);
 }
 
 function buildGrid() {
+  var cfg = activeCfg();
   const gridEl = document.getElementById('tile-grid');
   gridEl.innerHTML = '';
 
@@ -659,8 +755,8 @@ function buildGrid() {
       label.textContent = idx;
 
       const canvas = document.createElement('canvas');
-      canvas.width = tileWidth * scale;
-      canvas.height = tileHeight * scale;
+      canvas.width = cfg.tile_width * scale;
+      canvas.height = cfg.tile_height * scale;
       canvas.className = 'tile-canvas';
       canvas.dataset.idx = idx;
       canvas.dataset.row = r;
@@ -670,7 +766,7 @@ function buildGrid() {
       const tctx = canvas.getContext('2d');
       tctx.imageSmoothingEnabled = false;
       const { sx, sy } = getTileSourceXY(c, r);
-      tctx.drawImage(img, sx, sy, tileWidth, tileHeight, 0, 0, tileWidth * scale, tileHeight * scale);
+      tctx.drawImage(img, sx, sy, cfg.tile_width, cfg.tile_height, 0, 0, cfg.tile_width * scale, cfg.tile_height * scale);
 
       canvas.addEventListener('click', function() { onTileClick(idx, r, c); });
 
@@ -705,9 +801,10 @@ function inspectTile(idx, row, col) {
   if (el) el.classList.add('selected');
 
   // Draw preview
+  var cfg = activeCfg();
   inspectCtx.clearRect(0, 0, 96, 96);
   const { sx, sy } = getTileSourceXY(col, row);
-  inspectCtx.drawImage(img, sx, sy, tileWidth, tileHeight, 0, 0, 96, 96);
+  inspectCtx.drawImage(img, sx, sy, cfg.tile_width, cfg.tile_height, 0, 0, 96, 96);
 
   // Show info
   document.getElementById('inspect-info').innerHTML =
@@ -750,6 +847,7 @@ function clearAnimFrames() {
 }
 
 function renderAnimFrames() {
+  var cfg = activeCfg();
   const container = document.getElementById('anim-frames');
   container.innerHTML = '';
 
@@ -758,11 +856,11 @@ function renderAnimFrames() {
     item.className = 'frame-item';
 
     const canvas = document.createElement('canvas');
-    canvas.width = tileWidth * 2;
-    canvas.height = tileHeight * 2;
+    canvas.width = cfg.tile_width * 2;
+    canvas.height = cfg.tile_height * 2;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    drawTileToCanvas(ctx, tileIdx, 0, 0, tileWidth * 2, tileHeight * 2);
+    drawTileToCanvas(ctx, tileIdx, 0, 0, cfg.tile_width * 2, cfg.tile_height * 2);
 
     const orderLabel = document.createElement('span');
     orderLabel.className = 'frame-order';
@@ -920,6 +1018,7 @@ function clearSelectionTiles() {
 }
 
 function renderSelectionTiles() {
+  var cfg = activeCfg();
   const container = document.getElementById('sel-tiles');
   container.innerHTML = '';
 
@@ -928,11 +1027,11 @@ function renderSelectionTiles() {
     item.className = 'frame-item';
 
     const canvas = document.createElement('canvas');
-    canvas.width = tileWidth * 2;
-    canvas.height = tileHeight * 2;
+    canvas.width = cfg.tile_width * 2;
+    canvas.height = cfg.tile_height * 2;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    drawTileToCanvas(ctx, tileIdx, 0, 0, tileWidth * 2, tileHeight * 2);
+    drawTileToCanvas(ctx, tileIdx, 0, 0, cfg.tile_width * 2, cfg.tile_height * 2);
 
     const orderLabel = document.createElement('span');
     orderLabel.className = 'frame-order';
@@ -1042,6 +1141,7 @@ function clearCompLayers() {
 }
 
 function renderCompLayers() {
+  var cfg = activeCfg();
   const container = document.getElementById('comp-layers');
   container.innerHTML = '';
 
@@ -1051,11 +1151,11 @@ function renderCompLayers() {
 
     const left = document.createElement('span');
     const canvas = document.createElement('canvas');
-    canvas.width = tileWidth * 2;
-    canvas.height = tileHeight * 2;
+    canvas.width = cfg.tile_width * 2;
+    canvas.height = cfg.tile_height * 2;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    drawTileToCanvas(ctx, tileIdx, 0, 0, tileWidth * 2, tileHeight * 2);
+    drawTileToCanvas(ctx, tileIdx, 0, 0, cfg.tile_width * 2, cfg.tile_height * 2);
 
     left.appendChild(canvas);
     left.appendChild(document.createTextNode(' Layer ' + i + ' (tile #' + tileIdx + ')'));
@@ -1161,6 +1261,17 @@ function switchMode(mode) {
   const panelMap = { animation: 'animation-panel', selection: 'selection-panel', layer: 'layer-panel' };
   document.getElementById(panelMap[mode]).classList.add('active');
   updateGridHighlights();
+
+  // Redraw grid with this mode's tile config
+  var cfg = modeCfgs[mode];
+  syncTileCfgInputs();
+  if (img && img.complete && img.naturalWidth > 0) {
+    var layout = sheetLayout(img.width, img.height, cfg.tile_width, cfg.tile_height, cfg.margin, cfg.spacing);
+    cols = layout.cols;
+    rows = layout.rows;
+    updateGridHeader();
+    buildGrid();
+  }
 }
 
 function updateGridHighlights() {
@@ -1246,9 +1357,63 @@ document.getElementById('comp-name').addEventListener('input', function() {
     compLayers.length === 0 || !this.value.trim();
 });
 
+// Tile config inputs — update modeCfg and redraw grid
+document.querySelectorAll('.tile-cfg-input').forEach(function(input) {
+  input.addEventListener('change', function() {
+    var mode = this.dataset.mode;
+    var key  = this.dataset.key;
+    var val  = parseInt(this.value) || 0;
+    if (key === 'tile_width' || key === 'tile_height') val = Math.max(1, val);
+    modeCfgs[mode][key] = val;
+    if (mode === currentMode && img.complete) {
+      // Recompute layout for new tile size
+      var cfg = activeCfg();
+      var layout = sheetLayout(img.width, img.height, cfg.tile_width, cfg.tile_height, cfg.margin, cfg.spacing);
+      cols = layout.cols;
+      rows = layout.rows;
+      updateGridHeader();
+      buildGrid();
+    }
+  });
+});
+
 // Update animation preview when fps changes
 document.getElementById('anim-fps').addEventListener('input', function() {
   updateAnimPreview();
+});
+
+// ====== Tile Config ======
+
+function updateGridHeader() {
+  var cfg = activeCfg();
+  document.getElementById('grid-header').textContent =
+    cols * rows + ' tiles (' + cols + ' x ' + rows + ') — ' + cfg.tile_width + 'x' + cfg.tile_height + 'px each';
+}
+
+function syncTileCfgInputs() {
+  var cfg = activeCfg();
+  document.querySelectorAll('.tile-cfg-input[data-mode="' + currentMode + '"]').forEach(function(inp) {
+    inp.value = cfg[inp.dataset.key];
+  });
+}
+
+// Tile config inputs — update modeCfg and redraw grid
+document.querySelectorAll('.tile-cfg-input').forEach(function(input) {
+  input.addEventListener('change', function() {
+    var mode = this.dataset.mode;
+    var key  = this.dataset.key;
+    var val  = parseInt(this.value) || 0;
+    if (key === 'tile_width' || key === 'tile_height') val = Math.max(1, val);
+    modeCfgs[mode][key] = val;
+    if (mode === currentMode && img && img.complete && img.naturalWidth > 0) {
+      var cfg = activeCfg();
+      var layout = sheetLayout(img.width, img.height, cfg.tile_width, cfg.tile_height, cfg.margin, cfg.spacing);
+      cols = layout.cols;
+      rows = layout.rows;
+      updateGridHeader();
+      buildGrid();
+    }
+  });
 });
 
 // Initialize

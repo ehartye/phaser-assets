@@ -62,6 +62,7 @@
       pageItems.forEach(function (path, i) {
         var card = document.createElement('div');
         card.className = 'ap-card' + (i === _highlighted ? ' ap-highlighted' : '');
+        card.dataset.path = path;
 
         var img = document.createElement('img');
         img.src = '/inspector/image?path=' + encodeURIComponent(path);

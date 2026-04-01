@@ -6,6 +6,7 @@
 <title>Scene Designer</title>
 <link rel="stylesheet" href="/ui/theme.css">
 <link rel="stylesheet" href="/ui/scene-designer.css">
+<link rel="stylesheet" href="/ui/asset-picker.css">
 </head>
 <body>
 
@@ -25,6 +26,9 @@
     </div>
 
     <div class="tileset-tabs" id="tileset-tabs"></div>
+    <div id="discover-sheets-bar">
+      <button class="btn btn-outline" onclick="openAssetPicker(addTilesetFromPath)">+ Discover Sheets</button>
+    </div>
 
     <div id="recent-section">
       <h3>Recently Used</h3>
@@ -179,5 +183,6 @@ var layers = __LAYERS_PLACEHOLDER__;
 var zones = __ZONES_PLACEHOLDER__;
 </script>
 <script src="/ui/scene-designer.js"></script>
+<script src="/ui/asset-picker.js"></script>
 </body>
 </html>

@@ -126,6 +126,43 @@ function loadTilesets() {
   }
 }
 
+function addTilesetFromPath(imagePath) {
+  var parts = imagePath.replace(/\\/g, '/').split('/');
+  var name = parts[parts.length - 1].replace(/\.[^.]+$/, '');
+  var activeLayer = layers[activeLayerIndex];
+  var ts = (activeLayer && activeLayer.tileSize) ? activeLayer.tileSize : 32;
+
+  tilesetConfigs.push({
+    name: name,
+    image_path: imagePath,
+    tile_width: ts,
+    tile_height: ts,
+    margin: 0,
+    spacing: 0,
+  });
+
+  var idx = tilesetConfigs.length - 1;
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  tilesetImages[idx] = img;
+  tilesetReady[idx] = false;
+
+  img.onload = function() {
+    tilesetReady[idx] = true;
+    buildPaletteGrid(idx);
+    renderScene();
+    document.getElementById('palette-info').textContent =
+      tilesetConfigs.length + ' tileset(s) loaded';
+  };
+  img.onerror = function() {
+    console.error('Failed to load tileset:', imagePath);
+  };
+  img.src = '/designer/tileset?path=' + encodeURIComponent(imagePath);
+
+  activeTilesetIndex = idx;
+  buildTilesetTabs();
+}
+
 // ====== Tileset Tabs ======
 function buildTilesetTabs() {
   var container = document.getElementById('tileset-tabs');

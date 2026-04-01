@@ -91,6 +91,11 @@ body {
   border-bottom-color: var(--accent);
 }
 
+#discover-sheets-bar {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
 /* Recently used section */
 #recent-section {
   padding: 8px 12px;

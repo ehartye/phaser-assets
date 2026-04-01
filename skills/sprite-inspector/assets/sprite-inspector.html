@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sprite Sheet Inspector</title>
 <link rel="stylesheet" href="/ui/theme.css">
+<link rel="stylesheet" href="/ui/asset-picker.css">
 <style>
   body {
     display: flex;
@@ -430,6 +431,53 @@
     color: white;
   }
 
+  /* Sheet tabs bar */
+  #sheet-tabs-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  #sheet-tabs-bar #sheet-tabs {
+    flex: 1;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 0;
+    border-bottom: none;
+  }
+
+  .sheet-tab {
+    padding: 4px 12px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .sheet-tab:hover {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
+  .sheet-tab.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  #sheet-tabs-bar .btn {
+    width: auto;
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
   /* Tile config row */
   .tile-cfg-row {
     margin-bottom: 12px;
@@ -478,6 +526,10 @@
 
 <!-- Left: Tile Grid -->
 <div id="grid-panel">
+  <div id="sheet-tabs-bar">
+    <div id="sheet-tabs"></div>
+    <button class="btn btn-outline" id="discover-btn" onclick="openDiscoverPicker()">+ Discover</button>
+  </div>
   <h2 id="grid-header">Loading sprite sheet...</h2>
   <div id="tile-grid"></div>
 </div>
@@ -664,6 +716,21 @@ function activeCfg() { return modeCfgs[currentMode]; }
 let img, cols, rows;
 let currentMode = 'animation';
 
+// Multi-sheet state
+var SHEETS = [{
+  image_path: IMAGE_PATH,
+  tile_width: tileWidth,
+  tile_height: tileHeight,
+  margin: margin,
+  spacing: spacing,
+}];
+var activeSheetIdx = 0;
+var sheetImages = [];
+var sheetCols = [];
+var sheetRows = [];
+
+function activeImg() { return sheetImages[activeSheetIdx]; }
+
 // Animation state
 let animFrames = [];     // array of tile indices
 let savedAnimations = {}; // { name: { frames, frameRate, loop } }
@@ -688,25 +755,42 @@ inspectCtx.imageSmoothingEnabled = false;
 animPreviewCtx.imageSmoothingEnabled = false;
 composePreviewCtx.imageSmoothingEnabled = false;
 
-// Load the sprite sheet image
-img = new Image();
-img.crossOrigin = 'anonymous';
-img.onload = function() {
-  var cfg = activeCfg();
-  var layout = sheetLayout(img.width, img.height, cfg.tile_width, cfg.tile_height, cfg.margin, cfg.spacing);
-  cols = layout.cols;
-  rows = layout.rows;
-  updateGridHeader();
-  document.getElementById('sheet-info').textContent =
-    IMAGE_PATH + ' — ' + img.width + 'x' + img.height + 'px';
-  buildGrid();
-  // Sync tile config inputs with initial values
-  syncTileCfgInputs();
-};
-img.onerror = function() {
-  document.getElementById('grid-header').textContent = 'Failed to load sprite sheet image';
-};
-img.src = '/inspector/image';
+// Load the initial sprite sheet image
+function loadSheetImage(idx) {
+  var sheet = SHEETS[idx];
+  var sheetImg = new Image();
+  sheetImg.crossOrigin = 'anonymous';
+  sheetImg.onload = function() {
+    sheetImages[idx] = sheetImg;
+    if (idx === activeSheetIdx) {
+      img = sheetImg;
+      var cfg = activeCfg();
+      var layout = sheetLayout(img.width, img.height, cfg.tile_width, cfg.tile_height, cfg.margin, cfg.spacing);
+      cols = layout.cols;
+      rows = layout.rows;
+      sheetCols[idx] = cols;
+      sheetRows[idx] = rows;
+      updateGridHeader();
+      document.getElementById('sheet-info').textContent =
+        sheet.image_path + ' — ' + img.width + 'x' + img.height + 'px';
+      buildGrid();
+      syncTileCfgInputs();
+    }
+  };
+  sheetImg.onerror = function() {
+    if (idx === activeSheetIdx) {
+      document.getElementById('grid-header').textContent = 'Failed to load sprite sheet image';
+    }
+  };
+  sheetImg.src = '/inspector/image?path=' + encodeURIComponent(sheet.image_path);
+}
+
+// Load first sheet
+sheetImages[0] = null;
+sheetCols[0] = 0;
+sheetRows[0] = 0;
+loadSheetImage(0);
+buildSheetTabs();
 
 // Thin wrappers around tileset.js functions — use activeCfg() for per-mode tile config
 function getTileSourceXY(col, row) {
@@ -1385,11 +1469,73 @@ document.querySelectorAll('.tile-cfg-input').forEach(function(input) {
   });
 });
 
+// ====== Sheet Tabs ======
+
+function buildSheetTabs() {
+  var container = document.getElementById('sheet-tabs');
+  container.innerHTML = '';
+  for (var i = 0; i < SHEETS.length; i++) {
+    var btn = document.createElement('button');
+    btn.className = 'sheet-tab' + (i === activeSheetIdx ? ' active' : '');
+    var parts = SHEETS[i].image_path.replace(/\\/g, '/').split('/');
+    btn.textContent = parts[parts.length - 1];
+    btn.title = SHEETS[i].image_path;
+    btn.dataset.idx = i;
+    btn.addEventListener('click', function() {
+      switchSheet(parseInt(this.dataset.idx));
+    });
+    container.appendChild(btn);
+  }
+}
+
+function switchSheet(idx) {
+  if (idx < 0 || idx >= SHEETS.length) return;
+  activeSheetIdx = idx;
+  buildSheetTabs();
+
+  if (sheetImages[idx] && sheetImages[idx].complete && sheetImages[idx].naturalWidth > 0) {
+    img = sheetImages[idx];
+    var cfg = activeCfg();
+    var layout = sheetLayout(img.width, img.height, cfg.tile_width, cfg.tile_height, cfg.margin, cfg.spacing);
+    cols = layout.cols;
+    rows = layout.rows;
+    sheetCols[idx] = cols;
+    sheetRows[idx] = rows;
+    updateGridHeader();
+    document.getElementById('sheet-info').textContent =
+      SHEETS[idx].image_path + ' — ' + img.width + 'x' + img.height + 'px';
+    buildGrid();
+  } else {
+    document.getElementById('grid-header').textContent = 'Loading sprite sheet...';
+    document.getElementById('tile-grid').innerHTML = '';
+    loadSheetImage(idx);
+  }
+}
+
+function openDiscoverPicker() {
+  openAssetPicker(function(path) {
+    var cfg = activeCfg();
+    SHEETS.push({
+      image_path: path,
+      tile_width:  cfg.tile_width,
+      tile_height: cfg.tile_height,
+      margin:      cfg.margin,
+      spacing:     cfg.spacing,
+    });
+    sheetImages.push(null);
+    sheetCols.push(0);
+    sheetRows.push(0);
+    buildSheetTabs();
+    switchSheet(SHEETS.length - 1);
+  });
+}
+
 // Initialize
 renderSavedAnimations();
 renderSavedSelections();
 renderSavedCompositions();
 updateSendButton();
 </script>
+<script src="/ui/asset-picker.js"></script>
 </body>
 </html>

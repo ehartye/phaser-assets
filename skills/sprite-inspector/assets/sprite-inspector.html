@@ -661,19 +661,6 @@ var modeCfgs = {
 };
 function activeCfg() { return modeCfgs[currentMode]; }
 
-function syncTileCfgInputs() {
-  var cfg = activeCfg();
-  document.querySelectorAll('.tile-cfg-input[data-mode="' + currentMode + '"]').forEach(function(inp) {
-    inp.value = cfg[inp.dataset.key];
-  });
-}
-
-function updateGridHeader() {
-  var cfg = activeCfg();
-  document.getElementById('grid-header').textContent =
-    cols * rows + ' tiles (' + cols + ' x ' + rows + ') — ' + cfg.tile_width + 'x' + cfg.tile_height + 'px each';
-}
-
 let img, cols, rows;
 let currentMode = 'animation';
 
@@ -1355,26 +1342,6 @@ document.getElementById('sel-name').addEventListener('input', function() {
 document.getElementById('comp-name').addEventListener('input', function() {
   document.getElementById('save-comp-btn').disabled =
     compLayers.length === 0 || !this.value.trim();
-});
-
-// Tile config inputs — update modeCfg and redraw grid
-document.querySelectorAll('.tile-cfg-input').forEach(function(input) {
-  input.addEventListener('change', function() {
-    var mode = this.dataset.mode;
-    var key  = this.dataset.key;
-    var val  = parseInt(this.value) || 0;
-    if (key === 'tile_width' || key === 'tile_height') val = Math.max(1, val);
-    modeCfgs[mode][key] = val;
-    if (mode === currentMode && img.complete) {
-      // Recompute layout for new tile size
-      var cfg = activeCfg();
-      var layout = sheetLayout(img.width, img.height, cfg.tile_width, cfg.tile_height, cfg.margin, cfg.spacing);
-      cols = layout.cols;
-      rows = layout.rows;
-      updateGridHeader();
-      buildGrid();
-    }
-  });
 });
 
 // Update animation preview when fps changes

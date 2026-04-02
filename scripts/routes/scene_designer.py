@@ -191,10 +191,11 @@ class SceneDesignerRoutes:
                 "x": 0, "y": 0,
             })
 
+        orient = results.get("orientation", "orthogonal")
         tiled_map = {
             "version": "1.10",
             "tiledversion": "1.10.0",
-            "orientation": "orthogonal",
+            "orientation": orient,
             "renderorder": "right-down",
             "width": grid["width"],
             "height": grid["height"],

@@ -28,6 +28,7 @@
     <div class="tileset-tabs" id="tileset-tabs"></div>
     <div id="discover-sheets-bar">
       <button class="btn btn-outline" onclick="openAssetPicker(addTilesetFromPath)">+ Discover Sheets</button>
+      <button class="btn btn-outline" onclick="openFolderPicker(addFolderAsTileset)">+ Load Folder</button>
     </div>
 
     <div id="recent-section">
@@ -76,6 +77,16 @@
         <div class="layer-actions">
           <button class="btn btn-sm btn-outline" onclick="startAddZone()">+ Add Zone</button>
         </div>
+      </div>
+
+      <!-- Orientation -->
+      <div class="prop-section">
+        <h3>Orientation</h3>
+        <div class="orient-toggle">
+          <button id="orient-ortho" class="orient-btn active" onclick="setOrientation('orthogonal')">Orthographic</button>
+          <button id="orient-iso" class="orient-btn" onclick="setOrientation('isometric')">Isometric</button>
+        </div>
+        <div id="iso-hint" class="iso-hint">Recommended tile size: 64×32 (2:1 ratio)</div>
       </div>
 
       <!-- Tile Size -->
@@ -145,6 +156,18 @@
   </div>
 </div>
 
+<!-- Orientation: Confirm clear -->
+<div class="modal-overlay" id="orientation-confirm">
+  <div class="modal-box">
+    <h3>Clear existing tiles?</h3>
+    <p>Switching orientation will clear all tile data. Continue?</p>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-outline" style="border-color:var(--danger);color:var(--danger)" onclick="orientationConfirmClear()">Clear &amp; switch</button>
+      <button class="btn btn-sm btn-outline" onclick="orientationConfirmCancel()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Status Banner -->
 <div class="status-banner" id="status-banner">
   Data sent to Claude. You can close this tab.
@@ -181,6 +204,7 @@ var scenePixels = { width: 0, height: 0 };
 var tilesetConfigs = __TILESETS_PLACEHOLDER__;
 var layers = __LAYERS_PLACEHOLDER__;
 var zones = __ZONES_PLACEHOLDER__;
+var orientation = __ORIENTATION_PLACEHOLDER__;
 </script>
 <script src="/ui/scene-designer.js"></script>
 <script src="/ui/asset-picker.js"></script>

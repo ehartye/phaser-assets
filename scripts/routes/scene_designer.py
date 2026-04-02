@@ -31,6 +31,7 @@ class SceneDesignerRoutes:
             "project_path": body.get("project_path", session.project_path),
             "grid": body.get("grid", {"width": 20, "height": 15}),
             "tile_size": body.get("tile_size", {"width": 16, "height": 16}),
+            "orientation": body.get("orientation", "orthogonal"),
             "tilesets": body.get("tilesets", []),
             "layers": body.get("layers", []),
             "zones": body.get("zones", []),
@@ -62,6 +63,7 @@ class SceneDesignerRoutes:
         html = html.replace("__TILESETS_PLACEHOLDER__", json.dumps(session.designer.get("tilesets", [])))
         html = html.replace("__LAYERS_PLACEHOLDER__", json.dumps(session.designer.get("layers", [])))
         html = html.replace("__ZONES_PLACEHOLDER__", json.dumps(session.designer.get("zones", [])))
+        html = html.replace("__ORIENTATION_PLACEHOLDER__", json.dumps(session.designer.get("orientation", "orthogonal")))
 
         self.send_html(html)
 
@@ -81,6 +83,7 @@ class SceneDesignerRoutes:
         session.designer["results"] = {
             "grid": body.get("grid", session.designer.get("grid")),
             "tile_size": body.get("tile_size", session.designer.get("tile_size")),
+            "orientation": body.get("orientation", session.designer.get("orientation", "orthogonal")),
             "tilesets": body.get("tilesets", session.designer.get("tilesets")),
             "layers": body.get("layers", []),
             "zones": body.get("zones", []),
@@ -116,18 +119,35 @@ class SceneDesignerRoutes:
         tiled_tilesets = []
         gid = 1
         for ts in tilesets:
-            tiled_tilesets.append({
-                "firstgid": gid,
-                "name": ts.get("name", "tileset"),
-                "image": ts.get("image_path", ""),
-                "tilewidth": ts.get("tile_width", tile_size["width"]),
-                "tileheight": ts.get("tile_height", tile_size["height"]),
-                "margin": ts.get("margin", 0),
-                "spacing": ts.get("spacing", 0),
-                "tilecount": ts.get("tile_count", 0),
-                "columns": ts.get("columns", 0),
-            })
-            gid += ts.get("tile_count", 256)
+            if ts.get("type") == "sprite-collection":
+                sprites = ts.get("sprites", [])
+                folder = ts.get("folder_path", "").replace("\\", "/")
+                tile_entries = []
+                for tile_id, sprite_name in enumerate(sprites):
+                    tile_entries.append({
+                        "id": tile_id,
+                        "image": folder + "/" + sprite_name,
+                    })
+                tiled_tilesets.append({
+                    "firstgid": gid,
+                    "name": ts.get("name", "tileset"),
+                    "type": "tileset",
+                    "tiles": tile_entries,
+                })
+                gid += len(sprites)
+            else:
+                tiled_tilesets.append({
+                    "firstgid": gid,
+                    "name": ts.get("name", "tileset"),
+                    "image": ts.get("image_path", ""),
+                    "tilewidth": ts.get("tile_width", tile_size["width"]),
+                    "tileheight": ts.get("tile_height", tile_size["height"]),
+                    "margin": ts.get("margin", 0),
+                    "spacing": ts.get("spacing", 0),
+                    "tilecount": ts.get("tile_count", 0),
+                    "columns": ts.get("columns", 0),
+                })
+                gid += ts.get("tile_count", 256)
 
         # Build Tiled layers
         tiled_layers = []
@@ -171,10 +191,11 @@ class SceneDesignerRoutes:
                 "x": 0, "y": 0,
             })
 
+        orient = results.get("orientation", "orthogonal")
         tiled_map = {
             "version": "1.10",
             "tiledversion": "1.10.0",
-            "orientation": "orthogonal",
+            "orientation": orient,
             "renderorder": "right-down",
             "width": grid["width"],
             "height": grid["height"],

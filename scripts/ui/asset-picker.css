@@ -64,6 +64,18 @@
 #ap-filter {
   width: 100%;
   box-sizing: border-box;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+#ap-filter:focus {
+  border-color: var(--accent);
 }
 
 #ap-grid {

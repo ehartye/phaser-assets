@@ -479,22 +479,36 @@ function getTileInfoAt(globalId, ts_size) {
 
 // ====== Canvas Sizing ======
 function resizeCanvases() {
-  // Canvas must fit the largest layer (smallest tile size = most tiles)
   var maxPxW = 0, maxPxH = 0;
   for (var i = 0; i < layers.length; i++) {
     if (layers[i].type !== 'tilelayer') continue;
     var lts = _layerTileSize(layers[i]);
-    var lpxW = _layerGridCols(layers[i]) * lts;
-    var lpxH = _layerGridRows(layers[i]) * lts;
+    var lth = (orientation === 'isometric') ? Math.max(1, Math.floor(lts / 2)) : lts;
+    var cols = _layerGridCols(layers[i]);
+    var rows = _layerGridRows(layers[i]);
+    var lpxW, lpxH;
+    if (orientation === 'isometric') {
+      lpxW = (cols + rows) * (lts / 2);
+      lpxH = (cols + rows) * (lth / 2);
+    } else {
+      lpxW = cols * lts;
+      lpxH = rows * lts;
+    }
     if (lpxW > maxPxW) maxPxW = lpxW;
     if (lpxH > maxPxH) maxPxH = lpxH;
   }
-  // Fallback to active layer
-  if (maxPxW === 0) maxPxW = grid.width * tileSize.width;
-  if (maxPxH === 0) maxPxH = grid.height * tileSize.height;
+  if (maxPxW === 0) {
+    if (orientation === 'isometric') {
+      maxPxW = (grid.width + grid.height) * (tileSize.width / 2);
+      maxPxH = (grid.width + grid.height) * (tileSize.height / 2);
+    } else {
+      maxPxW = grid.width * tileSize.width;
+      maxPxH = grid.height * tileSize.height;
+    }
+  }
 
-  var w = maxPxW * zoom;
-  var h = maxPxH * zoom;
+  var w = Math.ceil(maxPxW * zoom);
+  var h = Math.ceil(maxPxH * zoom);
 
   sceneCanvas.width = w;
   sceneCanvas.height = h;
@@ -1160,6 +1174,35 @@ function _layerGridCols(layer) {
 
 function _layerGridRows(layer) {
   return Math.ceil(scenePixels.height / _layerTileSize(layer));
+}
+
+// ====== Isometric Coordinate Transforms ======
+// tileToScreen: returns top-left corner of tile bounding rect in canvas pixels (unzoomed)
+function tileToScreen(col, row, tileW, tileH) {
+  if (orientation === 'isometric') {
+    var originX = grid.height * (tileW / 2);
+    return {
+      x: originX + (col - row) * (tileW / 2),
+      y: (col + row) * (tileH / 2)
+    };
+  }
+  return { x: col * tileW, y: row * tileH };
+}
+
+// screenToTile: converts canvas pixel position (unzoomed) to tile col/row
+function screenToTile(screenX, screenY, tileW, tileH) {
+  if (orientation === 'isometric') {
+    var originX = grid.height * (tileW / 2);
+    var dx = screenX - originX;
+    return {
+      col: Math.floor((dx / (tileW / 2) + screenY / (tileH / 2)) / 2),
+      row: Math.floor((screenY / (tileH / 2) - dx / (tileW / 2)) / 2)
+    };
+  }
+  return {
+    col: Math.floor(screenX / tileW),
+    row: Math.floor(screenY / tileH)
+  };
 }
 
 function _hasTileData(layerIdx) {

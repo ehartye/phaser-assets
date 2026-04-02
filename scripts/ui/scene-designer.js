@@ -210,6 +210,76 @@ function addTilesetFromPath(imagePath) {
   buildTilesetTabs();
 }
 
+function addFolderAsTileset(folderPath) {
+  var normalized = folderPath.replace(/\\/g, '/');
+
+  fetch('/api/assets/list')
+    .then(function(r) { return r.json(); })
+    .then(function(allPaths) {
+      var prefix = normalized + '/';
+      var sprites = allPaths
+        .filter(function(p) {
+          var norm = p.replace(/\\/g, '/');
+          return norm.startsWith(prefix) && norm.indexOf('/', prefix.length) === -1;
+        })
+        .map(function(p) {
+          return p.replace(/\\/g, '/').substring(prefix.length);
+        });
+
+      if (sprites.length === 0) {
+        console.warn('No images found in folder:', normalized);
+        return;
+      }
+
+      var parts = normalized.split('/');
+      var name = parts[parts.length - 1];
+
+      var idx = tilesetConfigs.length;
+      tilesetConfigs.push({
+        type: 'sprite-collection',
+        name: name,
+        folder_path: normalized,
+        sprites: sprites,
+      });
+
+      tilesetImages[idx] = [];
+      tilesetReady[idx] = false;
+
+      var loadedCount = 0;
+      sprites.forEach(function(spriteName, spriteIdx) {
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        var fullPath = normalized + '/' + spriteName;
+        img.onload = function() {
+          loadedCount++;
+          if (loadedCount === sprites.length) {
+            tilesetReady[idx] = true;
+            document.getElementById('palette-info').textContent =
+              tilesetConfigs.length + ' tileset(s) loaded';
+            buildPaletteGrid(idx);
+            renderScene();
+          }
+        };
+        img.onerror = function() {
+          loadedCount++;
+          console.error('Failed to load:', fullPath);
+          if (loadedCount === sprites.length && !tilesetReady[idx]) {
+            tilesetReady[idx] = true;
+            buildPaletteGrid(idx);
+          }
+        };
+        img.src = '/designer/tileset?path=' + encodeURIComponent(fullPath);
+        tilesetImages[idx][spriteIdx] = img;
+      });
+
+      activeTilesetIndex = idx;
+      buildTilesetTabs();
+    })
+    .catch(function(err) {
+      console.error('addFolderAsTileset failed:', err);
+    });
+}
+
 // ====== Tileset Tabs ======
 function buildTilesetTabs() {
   var container = document.getElementById('tileset-tabs');
@@ -574,13 +644,18 @@ function resizeCanvases() {
 function renderScene() {
   sceneCtx.clearRect(0, 0, sceneCanvas.width, sceneCanvas.height);
 
-  // Fill background with a subtle checker pattern
-  var cw = tileSize.width * zoom;
-  var ch = tileSize.height * zoom;
-  for (var r = 0; r < grid.height; r++) {
-    for (var c = 0; c < grid.width; c++) {
-      sceneCtx.fillStyle = (r + c) % 2 === 0 ? '#12141f' : '#0e1019';
-      sceneCtx.fillRect(c * cw, r * ch, cw, ch);
+  // Background
+  if (orientation === 'isometric') {
+    sceneCtx.fillStyle = '#0e1019';
+    sceneCtx.fillRect(0, 0, sceneCanvas.width, sceneCanvas.height);
+  } else {
+    var cw = tileSize.width * zoom;
+    var ch = tileSize.height * zoom;
+    for (var r = 0; r < grid.height; r++) {
+      for (var c = 0; c < grid.width; c++) {
+        sceneCtx.fillStyle = (r + c) % 2 === 0 ? '#12141f' : '#0e1019';
+        sceneCtx.fillRect(c * cw, r * ch, cw, ch);
+      }
     }
   }
 
@@ -591,25 +666,56 @@ function renderScene() {
     if (!layer.data) continue;
 
     var lts = _layerTileSize(layer);
-    var lcw = lts * zoom;
-    var lch = lts * zoom;
+    var lth = (orientation === 'isometric') ? Math.max(1, Math.floor(lts / 2)) : lts;
     var lcols = _layerGridCols(layer);
+    var lrows = _layerGridRows(layer);
 
-    for (var idx = 0; idx < layer.data.length; idx++) {
-      var gid = layer.data[idx];
-      if (gid <= 0) continue;
+    if (orientation === 'isometric') {
+      // Diagonal-band (back-to-front) render order
+      for (var sum = 0; sum <= lcols + lrows - 2; sum++) {
+        for (var c = 0; c < lcols; c++) {
+          var r = sum - c;
+          if (r < 0 || r >= lrows) continue;
+          var gid = layer.data[r * lcols + c];
+          if (gid <= 0) continue;
 
-      var info = getTileInfoAt(gid, lts);
-      if (!info) continue;
+          var info = getTileInfo(gid);
+          if (!info) continue;
 
-      var col = idx % lcols;
-      var row = Math.floor(idx / lcols);
+          var pos = tileToScreen(c, r, lts, lth);
+          var srcW = info.tw, srcH = info.th;
 
-      sceneCtx.drawImage(
-        info.img,
-        info.sx, info.sy, info.tw, info.th,
-        col * lcw, row * lch, lcw, lch
-      );
+          // Scale sprite-collection tiles to tile width; scale sheet tiles to lts x lth
+          var destW, destH;
+          if (info.isCollection) {
+            var scale = lts / srcW;
+            destW = lts * zoom;
+            destH = srcH * scale * zoom;
+          } else {
+            destW = lts * zoom;
+            destH = lth * zoom;
+          }
+
+          var destX = pos.x * zoom;
+          // Anchor at bottom of diamond (tall sprites extend upward)
+          var destY = (pos.y + lth) * zoom - destH;
+
+          sceneCtx.drawImage(info.img, info.sx, info.sy, srcW, srcH, destX, destY, destW, destH);
+        }
+      }
+    } else {
+      // Orthographic: row-major order
+      var lcw = lts * zoom;
+      var lch = lts * zoom;
+      for (var idx = 0; idx < layer.data.length; idx++) {
+        var gid = layer.data[idx];
+        if (gid <= 0) continue;
+        var info = getTileInfoAt(gid, lts);
+        if (!info) continue;
+        var col = idx % lcols;
+        var row = Math.floor(idx / lcols);
+        sceneCtx.drawImage(info.img, info.sx, info.sy, info.tw, info.th, col * lcw, row * lch, lcw, lch);
+      }
     }
   }
 
@@ -620,39 +726,83 @@ function renderScene() {
 function renderGridOverlay() {
   gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
 
-  var cw = tileSize.width * zoom;
-  var ch = tileSize.height * zoom;
-  var canvasW = gridCanvas.width;
-  var canvasH = gridCanvas.height;
-
   if (showGrid) {
     gridCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
     gridCtx.lineWidth = 1;
 
-    for (var c = 0; c <= grid.width; c++) {
-      var x = c * cw + 0.5;
-      gridCtx.beginPath();
-      gridCtx.moveTo(x, 0);
-      gridCtx.lineTo(x, canvasH);
-      gridCtx.stroke();
-    }
+    if (orientation === 'isometric') {
+      var tw = tileSize.width;
+      var th = tileSize.height;
+      var cols = grid.width;
+      var rows = grid.height;
 
-    for (var r = 0; r <= grid.height; r++) {
-      var y = r * ch + 0.5;
-      gridCtx.beginPath();
-      gridCtx.moveTo(0, y);
-      gridCtx.lineTo(canvasW, y);
-      gridCtx.stroke();
+      // NW-SE lines: for each col (0..cols)
+      for (var c = 0; c <= cols; c++) {
+        gridCtx.beginPath();
+        var ax = tileToScreen(c, 0, tw, th);
+        var bx = tileToScreen(c, rows, tw, th);
+        gridCtx.moveTo(ax.x * zoom + 0.5, ax.y * zoom + 0.5);
+        gridCtx.lineTo(bx.x * zoom + 0.5, bx.y * zoom + 0.5);
+        gridCtx.stroke();
+      }
+
+      // NE-SW lines: for each row (0..rows)
+      for (var r = 0; r <= rows; r++) {
+        gridCtx.beginPath();
+        var ay = tileToScreen(0, r, tw, th);
+        var by = tileToScreen(cols, r, tw, th);
+        gridCtx.moveTo(ay.x * zoom + 0.5, ay.y * zoom + 0.5);
+        gridCtx.lineTo(by.x * zoom + 0.5, by.y * zoom + 0.5);
+        gridCtx.stroke();
+      }
+    } else {
+      var cw = tileSize.width * zoom;
+      var ch = tileSize.height * zoom;
+      var canvasW = gridCanvas.width;
+      var canvasH = gridCanvas.height;
+
+      for (var c = 0; c <= grid.width; c++) {
+        var x = c * cw + 0.5;
+        gridCtx.beginPath();
+        gridCtx.moveTo(x, 0);
+        gridCtx.lineTo(x, canvasH);
+        gridCtx.stroke();
+      }
+      for (var r = 0; r <= grid.height; r++) {
+        var y = r * ch + 0.5;
+        gridCtx.beginPath();
+        gridCtx.moveTo(0, y);
+        gridCtx.lineTo(canvasW, y);
+        gridCtx.stroke();
+      }
     }
   }
 
   if (showBounds) {
-    var bw = scenePixels.width * zoom;
-    var bh = scenePixels.height * zoom;
-
-    gridCtx.strokeStyle = 'rgba(80, 140, 255, 0.6)';
-    gridCtx.lineWidth = 2;
-    gridCtx.strokeRect(-0.5, -0.5, bw + 1, bh + 1);
+    if (orientation === 'isometric') {
+      // Draw the four corners of the diamond map as a rhombus outline
+      var tw = tileSize.width;
+      var th = tileSize.height;
+      var topCorner    = tileToScreen(0, 0, tw, th);
+      var rightCorner  = tileToScreen(grid.width, 0, tw, th);
+      var bottomCorner = tileToScreen(grid.width, grid.height, tw, th);
+      var leftCorner   = tileToScreen(0, grid.height, tw, th);
+      gridCtx.strokeStyle = 'rgba(80, 140, 255, 0.6)';
+      gridCtx.lineWidth = 2;
+      gridCtx.beginPath();
+      gridCtx.moveTo(topCorner.x * zoom, topCorner.y * zoom);
+      gridCtx.lineTo(rightCorner.x * zoom + tw * zoom, rightCorner.y * zoom);
+      gridCtx.lineTo(bottomCorner.x * zoom + tw * zoom, (bottomCorner.y + th) * zoom);
+      gridCtx.lineTo(leftCorner.x * zoom, (leftCorner.y + th) * zoom);
+      gridCtx.closePath();
+      gridCtx.stroke();
+    } else {
+      var bw = scenePixels.width * zoom;
+      var bh = scenePixels.height * zoom;
+      gridCtx.strokeStyle = 'rgba(80, 140, 255, 0.6)';
+      gridCtx.lineWidth = 2;
+      gridCtx.strokeRect(-0.5, -0.5, bw + 1, bh + 1);
+    }
   }
 }
 
@@ -806,12 +956,13 @@ function setupCanvasEvents() {
 
 function getCanvasPos(e) {
   var rect = sceneCanvas.getBoundingClientRect();
-  var x = e.clientX - rect.left;
-  var y = e.clientY - rect.top;
-  var cw = tileSize.width * zoom;
-  var ch = tileSize.height * zoom;
-  var col = Math.floor(x / cw);
-  var row = Math.floor(y / ch);
+  var x = (e.clientX - rect.left) / zoom;
+  var y = (e.clientY - rect.top) / zoom;
+  var tw = tileSize.width;
+  var th = tileSize.height;
+  var pos = screenToTile(x, y, tw, th);
+  var col = pos.col;
+  var row = pos.row;
   if (col < 0 || col >= grid.width || row < 0 || row >= grid.height) return null;
   return { col: col, row: row };
 }
@@ -1379,10 +1530,10 @@ function _applyLayerTileSize(layerIdx, size) {
 
   // Update active tile size to match active layer
   tileSize.width = size;
-  tileSize.height = size;
+  tileSize.height = (orientation === 'isometric') ? Math.max(1, Math.floor(size / 2)) : size;
   for (var i = 0; i < tilesetConfigs.length; i++) {
-    tilesetConfigs[i].tile_width = size;
-    tilesetConfigs[i].tile_height = size;
+    tilesetConfigs[i].tile_width = tileSize.width;
+    tilesetConfigs[i].tile_height = tileSize.height;
   }
 
   recentTiles = recentTilesBySize[size] || {};
@@ -1438,6 +1589,7 @@ function sendToClaude() {
   var payload = {
     grid: grid,
     tile_size: tileSize,
+    orientation: orientation,
     tilesets: tilesetConfigs,
     scene_pixels: scenePixels,
     layers: layers.map(function(l) {

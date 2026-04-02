@@ -13,6 +13,7 @@ var zoneDrawing = false;
 var zoneStart = null;
 var zoneCurrent = null;
 var pendingZoneRect = null;
+var _pendingOrientation = null;
 
 // Tileset images (loaded async)
 var tilesetImages = []; // Image objects, parallel to tilesetConfigs
@@ -85,6 +86,8 @@ function init() {
 
   // Set up mouse handlers on canvas panel
   setupCanvasEvents();
+
+  _syncOrientationButtons();
 }
 
 // ====== Tileset Loading ======
@@ -1266,6 +1269,55 @@ function tileSizeConfirmClear() {
 
 function tileSizeConfirmCancel() {
   document.getElementById('tile-size-confirm').classList.remove('visible');
+}
+
+// ====== Orientation ======
+function setOrientation(mode) {
+  if (orientation === mode) return;
+
+  var hasData = false;
+  for (var i = 0; i < layers.length; i++) {
+    if (_hasTileData(i)) { hasData = true; break; }
+  }
+
+  if (hasData) {
+    _pendingOrientation = mode;
+    document.getElementById('orientation-confirm').classList.add('visible');
+  } else {
+    _applyOrientation(mode);
+  }
+}
+
+function orientationConfirmClear() {
+  document.getElementById('orientation-confirm').classList.remove('visible');
+  for (var i = 0; i < layers.length; i++) { _clearLayerData(i); }
+  _applyOrientation(_pendingOrientation);
+  _pendingOrientation = null;
+}
+
+function orientationConfirmCancel() {
+  document.getElementById('orientation-confirm').classList.remove('visible');
+  _pendingOrientation = null;
+  // Re-sync toggle buttons to current orientation
+  _syncOrientationButtons();
+}
+
+function _applyOrientation(mode) {
+  orientation = mode;
+  if (mode === 'isometric') {
+    // Force 2:1 aspect ratio: tileH = tileW / 2
+    tileSize.height = Math.max(1, Math.floor(tileSize.width / 2));
+  } else {
+    tileSize.height = tileSize.width;
+  }
+  _syncOrientationButtons();
+  resizeCanvases();
+  renderScene();
+}
+
+function _syncOrientationButtons() {
+  document.getElementById('orient-ortho').classList.toggle('active', orientation === 'orthogonal');
+  document.getElementById('orient-iso').classList.toggle('active', orientation === 'isometric');
 }
 
 function _applyLayerTileSize(layerIdx, size) {

@@ -237,6 +237,53 @@ function buildPaletteGrid(tsIdx) {
   if (!tilesetReady[tsIdx]) return;
 
   var ts = tilesetConfigs[tsIdx];
+
+  // ---- Sprite-collection: one canvas per sprite ----
+  if (ts.type === 'sprite-collection') {
+    var sprites = ts.sprites || [];
+    var images = tilesetImages[tsIdx] || [];
+    var thumbSize = 48 * palZoom;
+    container.style.gridTemplateColumns = 'repeat(auto-fill, ' + thumbSize + 'px)';
+    document.getElementById('palette-panel').style.width = '';
+
+    var firstgid = getFirstGid(tsIdx);
+
+    sprites.forEach(function(spriteName, spriteIdx) {
+      var img = images[spriteIdx];
+      if (!img) return;
+
+      var globalId = firstgid + spriteIdx;
+
+      var canvas = document.createElement('canvas');
+      canvas.width = thumbSize;
+      canvas.height = thumbSize;
+      canvas.className = 'palette-tile' + (globalId === activeTile ? ' selected' : '');
+      canvas.dataset.tsIdx = tsIdx;
+      canvas.dataset.tileIdx = spriteIdx;
+      canvas.dataset.globalId = globalId;
+      canvas.title = spriteName;
+
+      var ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      var pad = 4;
+      var maxSide = thumbSize - pad * 2;
+      var scale = Math.min(maxSide / img.naturalWidth, maxSide / img.naturalHeight);
+      var dw = img.naturalWidth * scale;
+      var dh = img.naturalHeight * scale;
+      var dx = (thumbSize - dw) / 2;
+      var dy = (thumbSize - dh) / 2;
+      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, dx, dy, dw, dh);
+
+      canvas.addEventListener('click', function() {
+        selectTile(parseInt(this.dataset.globalId), parseInt(this.dataset.tsIdx));
+      });
+
+      container.appendChild(canvas);
+    });
+    return;
+  }
+
+  // ---- Standard spritesheet ----
   var img = tilesetImages[tsIdx];
   var tw = ts.tile_width;
   var th = ts.tile_height;

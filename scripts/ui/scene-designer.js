@@ -1318,6 +1318,8 @@ function _applyOrientation(mode) {
 function _syncOrientationButtons() {
   document.getElementById('orient-ortho').classList.toggle('active', orientation === 'orthogonal');
   document.getElementById('orient-iso').classList.toggle('active', orientation === 'isometric');
+  var hint = document.getElementById('iso-hint');
+  if (hint) hint.style.display = (orientation === 'isometric') ? 'block' : 'none';
 }
 
 function _applyLayerTileSize(layerIdx, size) {

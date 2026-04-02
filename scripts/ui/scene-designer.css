@@ -691,3 +691,32 @@ body {
   gap: 8px;
   justify-content: flex-end;
 }
+
+.orient-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.orient-btn {
+  flex: 1;
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.orient-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.iso-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  display: none;
+}

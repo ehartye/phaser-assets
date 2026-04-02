@@ -78,6 +78,16 @@
         </div>
       </div>
 
+      <!-- Orientation -->
+      <div class="prop-section">
+        <h3>Orientation</h3>
+        <div class="orient-toggle">
+          <button id="orient-ortho" class="orient-btn active" onclick="setOrientation('orthogonal')">Orthographic</button>
+          <button id="orient-iso" class="orient-btn" onclick="setOrientation('isometric')">Isometric</button>
+        </div>
+        <div id="iso-hint" class="iso-hint">Recommended tile size: 64×32 (2:1 ratio)</div>
+      </div>
+
       <!-- Tile Size -->
       <div class="prop-section">
         <h3>Tile Size</h3>
@@ -141,6 +151,18 @@
     <div class="modal-actions">
       <button class="btn btn-sm btn-outline" style="border-color:var(--danger);color:var(--danger)" onclick="tileSizeConfirmClear()">Clear &amp; change</button>
       <button class="btn btn-sm btn-outline" onclick="tileSizeConfirmCancel()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Orientation: Confirm clear -->
+<div class="modal-overlay" id="orientation-confirm">
+  <div class="modal-box">
+    <h3>Clear existing tiles?</h3>
+    <p>Switching orientation will clear all tile data. Continue?</p>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-outline" style="border-color:var(--danger);color:var(--danger)" onclick="orientationConfirmClear()">Clear &amp; switch</button>
+      <button class="btn btn-sm btn-outline" onclick="orientationConfirmCancel()">Cancel</button>
     </div>
   </div>
 </div>

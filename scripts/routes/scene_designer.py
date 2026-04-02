@@ -31,6 +31,7 @@ class SceneDesignerRoutes:
             "project_path": body.get("project_path", session.project_path),
             "grid": body.get("grid", {"width": 20, "height": 15}),
             "tile_size": body.get("tile_size", {"width": 16, "height": 16}),
+            "orientation": body.get("orientation", "orthogonal"),
             "tilesets": body.get("tilesets", []),
             "layers": body.get("layers", []),
             "zones": body.get("zones", []),
@@ -62,6 +63,7 @@ class SceneDesignerRoutes:
         html = html.replace("__TILESETS_PLACEHOLDER__", json.dumps(session.designer.get("tilesets", [])))
         html = html.replace("__LAYERS_PLACEHOLDER__", json.dumps(session.designer.get("layers", [])))
         html = html.replace("__ZONES_PLACEHOLDER__", json.dumps(session.designer.get("zones", [])))
+        html = html.replace("__ORIENTATION_PLACEHOLDER__", json.dumps(session.designer.get("orientation", "orthogonal")))
 
         self.send_html(html)
 
@@ -81,6 +83,7 @@ class SceneDesignerRoutes:
         session.designer["results"] = {
             "grid": body.get("grid", session.designer.get("grid")),
             "tile_size": body.get("tile_size", session.designer.get("tile_size")),
+            "orientation": body.get("orientation", session.designer.get("orientation", "orthogonal")),
             "tilesets": body.get("tilesets", session.designer.get("tilesets")),
             "layers": body.get("layers", []),
             "zones": body.get("zones", []),

@@ -413,17 +413,7 @@ function getFirstGid(tsIdx) {
   var gid = 1;
   for (var i = 0; i < tsIdx; i++) {
     if (!tilesetReady[i]) continue;
-    var ts = tilesetConfigs[i];
-    if (ts.type === 'sprite-collection') {
-      gid += (ts.sprites || []).length;
-    } else {
-      var img = tilesetImages[i];
-      var margin = ts.margin || 0;
-      var spacing = ts.spacing || 0;
-      var cols = Math.floor((img.width - margin + spacing) / (ts.tile_width + spacing));
-      var rows = Math.floor((img.height - margin + spacing) / (ts.tile_height + spacing));
-      gid += cols * rows;
-    }
+    gid += tilesetTileCount(tilesetConfigs[i], tilesetImages[i]);
   }
   return gid;
 }
@@ -505,46 +495,17 @@ function getTileInfo(globalId, overrideTileSize) {
   for (var i = 0; i < tilesetConfigs.length; i++) {
     if (!tilesetReady[i]) continue;
     var ts = tilesetConfigs[i];
-
-    if (ts.type === 'sprite-collection') {
-      var sprites = ts.sprites || [];
-      var count = sprites.length;
-      if (globalId >= gid && globalId < gid + count) {
-        var localIdx = globalId - gid;
-        var img = tilesetImages[i][localIdx];
-        if (!img || !img.naturalWidth) return null;
-        return {
-          tsIdx: i, tsName: ts.name, localIdx: localIdx,
-          img: img, sx: 0, sy: 0,
-          tw: img.naturalWidth, th: img.naturalHeight,
-          cols: 1, rows: 1,
-          isCollection: true
-        };
-      }
-      gid += count;
-    } else {
-      var img = tilesetImages[i];
-      var margin = ts.margin || 0;
-      var spacing = ts.spacing || 0;
-      var tw = overrideTileSize || ts.tile_width;
-      var th = overrideTileSize || ts.tile_height;
-      var cols = Math.floor((img.width - margin + spacing) / (tw + spacing));
-      var rows = Math.floor((img.height - margin + spacing) / (th + spacing));
-      var count = cols * rows;
-      if (globalId >= gid && globalId < gid + count) {
-        var localIdx = globalId - gid;
-        var cr = tileColRow(localIdx, cols);
-        var pos = tileSourceXY(cr.col, cr.row, tw, th, margin, spacing);
-        return {
-          tsIdx: i, tsName: ts.name, localIdx: localIdx,
-          img: img, sx: pos.sx, sy: pos.sy,
-          tw: tw, th: th,
-          cols: cols, rows: rows,
-          isCollection: false
-        };
-      }
-      gid += count;
+    var count = tilesetTileCount(ts, tilesetImages[i]);
+    if (globalId >= gid && globalId < gid + count) {
+      var localIdx = globalId - gid;
+      var result = tilesetLookup(ts, tilesetImages[i], localIdx, overrideTileSize);
+      if (!result) return null;
+      result.tsIdx = i;
+      result.tsName = ts.name;
+      result.localIdx = localIdx;
+      return result;
     }
+    gid += count;
   }
   return null;
 }

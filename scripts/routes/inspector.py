@@ -23,6 +23,8 @@ class InspectorRoutes:
     def handle_inspector_load(self):
         from server import session
         body = self.read_body()
+        if body is None:
+            return
         if body.get("project_path"):
             session.project_path = body["project_path"]
         # Accept either a single sheet config or an array of sheets
@@ -58,14 +60,14 @@ class InspectorRoutes:
         sheets = session.inspector.get("sheets", [{}])
         first = sheets[0] if sheets else {}
         # Backward compat: inject both old single-sheet placeholders and new sheets array
-        html = html.replace("__TILE_CONFIG_PLACEHOLDER__", json.dumps({
+        html = html.replace("__TILE_CONFIG_PLACEHOLDER__", self.safe_json_for_html({
             "tile_width": first.get("tile_width", 32),
             "tile_height": first.get("tile_height", 32),
             "margin": first.get("margin", 0),
             "spacing": first.get("spacing", 0),
         }))
-        html = html.replace('"__IMAGE_PATH_PLACEHOLDER__"', json.dumps(first.get("image_path", "")))
-        html = html.replace("__SHEETS_PLACEHOLDER__", json.dumps(sheets))
+        html = html.replace('"__IMAGE_PATH_PLACEHOLDER__"', self.safe_json_for_html(first.get("image_path", "")))
+        html = html.replace("__SHEETS_PLACEHOLDER__", self.safe_json_for_html(sheets))
         self.send_html(html)
 
     def handle_inspector_image(self):
@@ -85,6 +87,8 @@ class InspectorRoutes:
     def handle_inspector_submit(self):
         from server import session
         body = self.read_body()
+        if body is None:
+            return
         session.inspector["results"] = {
             "sheets": session.inspector.get("sheets", []),
             "animations": body.get("animations", {}),

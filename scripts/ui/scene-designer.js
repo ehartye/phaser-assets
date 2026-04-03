@@ -991,27 +991,37 @@ function floodFill(startRow, startCol) {
   var layer = layers[activeLayerIndex];
   if (!layer || layer.type !== 'tilelayer') return;
 
-  var target = layer.data[startRow * grid.width + startCol];
+  var cols = _layerGridCols(layer);
+  var rows = _layerGridRows(layer);
+  var target = layer.data[startRow * cols + startCol];
   var replacement = activeTile;
   if (target === replacement) return;
 
   var stack = [[startRow, startCol]];
   var visited = {};
+  var MAX_FILL = 250000;
+  var count = 0;
 
   while (stack.length > 0) {
+    if (count >= MAX_FILL) {
+      console.warn('Flood fill hit limit of ' + MAX_FILL + ' tiles');
+      break;
+    }
+
     var cell = stack.pop();
     var r = cell[0];
     var c = cell[1];
     var key = r + ',' + c;
 
     if (visited[key]) continue;
-    if (r < 0 || r >= grid.height || c < 0 || c >= grid.width) continue;
+    if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
 
-    var idx = r * grid.width + c;
+    var idx = r * cols + c;
     if (layer.data[idx] !== target) continue;
 
     visited[key] = true;
     layer.data[idx] = replacement;
+    count++;
 
     stack.push([r - 1, c]);
     stack.push([r + 1, c]);

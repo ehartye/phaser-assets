@@ -361,6 +361,8 @@ class ItchIoRoutes:
 
     def handle_itch_search(self):
         body = self.read_body()
+        if body is None:
+            return
         tags = body.get("tags", [])
         sort = body.get("sort")
         query = body.get("query")
@@ -379,6 +381,8 @@ class ItchIoRoutes:
         from server import session, get_db
 
         body = self.read_body()
+        if body is None:
+            return
         tags = body.get("tags", [])
         sort = body.get("sort")
         query = body.get("query")
@@ -443,6 +447,8 @@ class ItchIoRoutes:
 
     def handle_itch_details(self):
         body = self.read_body()
+        if body is None:
+            return
         asset_url = body.get("url", "")
         if not asset_url or "itch.io" not in asset_url:
             self.send_json({"error": "missing or invalid itch.io URL"}, 400)
@@ -455,6 +461,8 @@ class ItchIoRoutes:
 
     def handle_itch_download(self):
         body = self.read_body()
+        if body is None:
+            return
         asset_url = body.get("url", "")
         dest_dir = body.get("dest_dir", "")
         if not asset_url or "itch.io" not in asset_url:

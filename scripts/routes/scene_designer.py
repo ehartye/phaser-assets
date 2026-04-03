@@ -25,6 +25,8 @@ class SceneDesignerRoutes:
     def handle_designer_load(self):
         from server import session
         body = self.read_body()
+        if body is None:
+            return
         if body.get("project_path"):
             session.project_path = body["project_path"]
         session.designer = {
@@ -58,12 +60,12 @@ class SceneDesignerRoutes:
             self.send_json({"error": "scene designer template not found"}, 500)
             return
 
-        html = html.replace("__GRID_CONFIG_PLACEHOLDER__", json.dumps(session.designer.get("grid", {})))
-        html = html.replace("__TILE_SIZE_PLACEHOLDER__", json.dumps(session.designer.get("tile_size", {})))
-        html = html.replace("__TILESETS_PLACEHOLDER__", json.dumps(session.designer.get("tilesets", [])))
-        html = html.replace("__LAYERS_PLACEHOLDER__", json.dumps(session.designer.get("layers", [])))
-        html = html.replace("__ZONES_PLACEHOLDER__", json.dumps(session.designer.get("zones", [])))
-        html = html.replace("__ORIENTATION_PLACEHOLDER__", json.dumps(session.designer.get("orientation", "orthogonal")))
+        html = html.replace("__GRID_CONFIG_PLACEHOLDER__", self.safe_json_for_html(session.designer.get("grid", {})))
+        html = html.replace("__TILE_SIZE_PLACEHOLDER__", self.safe_json_for_html(session.designer.get("tile_size", {})))
+        html = html.replace("__TILESETS_PLACEHOLDER__", self.safe_json_for_html(session.designer.get("tilesets", [])))
+        html = html.replace("__LAYERS_PLACEHOLDER__", self.safe_json_for_html(session.designer.get("layers", [])))
+        html = html.replace("__ZONES_PLACEHOLDER__", self.safe_json_for_html(session.designer.get("zones", [])))
+        html = html.replace("__ORIENTATION_PLACEHOLDER__", self.safe_json_for_html(session.designer.get("orientation", "orthogonal")))
 
         self.send_html(html)
 
@@ -80,6 +82,8 @@ class SceneDesignerRoutes:
     def handle_designer_submit(self):
         from server import session
         body = self.read_body()
+        if body is None:
+            return
         session.designer["results"] = {
             "grid": body.get("grid", session.designer.get("grid")),
             "tile_size": body.get("tile_size", session.designer.get("tile_size")),

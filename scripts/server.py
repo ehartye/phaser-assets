@@ -153,15 +153,25 @@ if ItchIoRoutes is not None:
 class AssetHandler(BaseHTTPRequestHandler, *_base_mixins):
     """Route-dispatching HTTP handler for the asset preview server."""
 
+    MAX_BODY_SIZE = 50 * 1024 * 1024  # 50 MB
+
     # Suppress default stderr logging
     def log_message(self, format, *args):
         pass
 
     # ---- helpers ----------------------------------------------------------
 
+    @staticmethod
+    def safe_json_for_html(data):
+        """JSON-encode data, escaping </ to prevent script injection in HTML."""
+        return json.dumps(data).replace("</", "<\\/")
+
     def read_body(self):
         """Read and parse JSON from the request body."""
         length = int(self.headers.get("Content-Length", 0))
+        if length > self.MAX_BODY_SIZE:
+            self.send_json({"error": "request body too large"}, 413)
+            return None
         raw = self.rfile.read(length)
         if not raw:
             return {}

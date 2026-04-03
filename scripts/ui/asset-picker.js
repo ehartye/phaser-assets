@@ -131,7 +131,7 @@
   }
 
   // ---- Shared modal shell ----
-  function buildModalShell(title) {
+  function buildModalShell(title, onClose) {
     var overlay = document.createElement('div');
     overlay.id = 'asset-picker-overlay';
 
@@ -161,18 +161,20 @@
     modal.appendChild(filterRow);
     overlay.appendChild(modal);
 
-    // Click backdrop to close
-    var closeOverlay = function() {
+    var closeOverlay = onClose || function() {
       overlay.remove();
       document.removeEventListener('keydown', escHandler);
     };
     overlay.addEventListener('click', closeOverlay);
     closeBtn.addEventListener('click', closeOverlay);
 
-    var escHandler = function(e) {
-      if (e.key === 'Escape') closeOverlay();
-    };
-    document.addEventListener('keydown', escHandler);
+    var escHandler;
+    if (!onClose) {
+      escHandler = function(e) {
+        if (e.key === 'Escape') closeOverlay();
+      };
+      document.addEventListener('keydown', escHandler);
+    }
 
     return {
       overlay: overlay,
@@ -184,15 +186,9 @@
 
   // ---- Build modal DOM ----
   function buildModal() {
-    var shell = buildModalShell('Discover Sheets');
+    var shell = buildModalShell('Discover Sheets', close);
     shell.filterInput.placeholder = 'Filter by filename\u2026';
     shell.filterInput.addEventListener('input', function() { applyFilter(this.value.trim()); });
-
-    // Re-bind close to our module-level close function
-    shell.overlay.removeEventListener('click', shell.close);
-    shell.overlay.addEventListener('click', close);
-    shell.modal.querySelector('#ap-close').removeEventListener('click', shell.close);
-    shell.modal.querySelector('#ap-close').addEventListener('click', close);
 
     var grid = document.createElement('div');
     grid.id = 'ap-grid';

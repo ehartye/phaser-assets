@@ -498,7 +498,7 @@ function renderRecentTiles() {
 }
 
 // ====== Tile Info Lookup ======
-function getTileInfo(globalId) {
+function getTileInfo(globalId, overrideTileSize) {
   if (globalId <= 0) return null;
 
   var gid = 1;
@@ -526,56 +526,8 @@ function getTileInfo(globalId) {
       var img = tilesetImages[i];
       var margin = ts.margin || 0;
       var spacing = ts.spacing || 0;
-      var cols = Math.floor((img.width - margin + spacing) / (ts.tile_width + spacing));
-      var rows = Math.floor((img.height - margin + spacing) / (ts.tile_height + spacing));
-      var count = cols * rows;
-      if (globalId >= gid && globalId < gid + count) {
-        var localIdx = globalId - gid;
-        var cr = tileColRow(localIdx, cols);
-        var pos = tileSourceXY(cr.col, cr.row, ts.tile_width, ts.tile_height, margin, spacing);
-        return {
-          tsIdx: i, tsName: ts.name, localIdx: localIdx,
-          img: img, sx: pos.sx, sy: pos.sy,
-          tw: ts.tile_width, th: ts.tile_height,
-          cols: cols, rows: rows,
-          isCollection: false
-        };
-      }
-      gid += count;
-    }
-  }
-  return null;
-}
-
-function getTileInfoAt(globalId, ts_size) {
-  if (globalId <= 0) return null;
-  var gid = 1;
-  for (var i = 0; i < tilesetConfigs.length; i++) {
-    if (!tilesetReady[i]) continue;
-    var ts = tilesetConfigs[i];
-
-    if (ts.type === 'sprite-collection') {
-      var sprites = ts.sprites || [];
-      var count = sprites.length;
-      if (globalId >= gid && globalId < gid + count) {
-        var localIdx = globalId - gid;
-        var img = tilesetImages[i][localIdx];
-        if (!img || !img.naturalWidth) return null;
-        return {
-          tsIdx: i, tsName: ts.name, localIdx: localIdx,
-          img: img, sx: 0, sy: 0,
-          tw: img.naturalWidth, th: img.naturalHeight,
-          cols: 1, rows: 1,
-          isCollection: true
-        };
-      }
-      gid += count;
-    } else {
-      var img = tilesetImages[i];
-      var margin = ts.margin || 0;
-      var spacing = ts.spacing || 0;
-      var tw = ts_size;
-      var th = ts_size;
+      var tw = overrideTileSize || ts.tile_width;
+      var th = overrideTileSize || ts.tile_height;
       var cols = Math.floor((img.width - margin + spacing) / (tw + spacing));
       var rows = Math.floor((img.height - margin + spacing) / (th + spacing));
       var count = cols * rows;
@@ -710,7 +662,7 @@ function renderScene() {
       for (var idx = 0; idx < layer.data.length; idx++) {
         var gid = layer.data[idx];
         if (gid <= 0) continue;
-        var info = getTileInfoAt(gid, lts);
+        var info = getTileInfo(gid, lts);
         if (!info) continue;
         var col = idx % lcols;
         var row = Math.floor(idx / lcols);

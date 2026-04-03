@@ -130,24 +130,23 @@
     }
   }
 
-  // ---- Build modal DOM ----
-  function buildModal() {
+  // ---- Shared modal shell ----
+  function buildModalShell(title, onClose) {
     var overlay = document.createElement('div');
     overlay.id = 'asset-picker-overlay';
 
     var modal = document.createElement('div');
     modal.id = 'ap-modal';
-    modal.addEventListener('click', function (e) { e.stopPropagation(); });
+    modal.addEventListener('click', function(e) { e.stopPropagation(); });
 
     var header = document.createElement('div');
     header.id = 'ap-header';
-    var title = document.createElement('h2');
-    title.textContent = 'Discover Sheets';
+    var titleEl = document.createElement('h2');
+    titleEl.textContent = title;
     var closeBtn = document.createElement('button');
     closeBtn.id = 'ap-close';
-    closeBtn.textContent = '✕';
-    closeBtn.addEventListener('click', close);
-    header.appendChild(title);
+    closeBtn.textContent = '\u2715';
+    header.appendChild(titleEl);
     header.appendChild(closeBtn);
 
     var filterRow = document.createElement('div');
@@ -155,10 +154,41 @@
     var filterInput = document.createElement('input');
     filterInput.id = 'ap-filter';
     filterInput.type = 'text';
-    filterInput.placeholder = 'Filter by filename…';
     filterInput.autocomplete = 'off';
-    filterInput.addEventListener('input', function () { applyFilter(this.value.trim()); });
     filterRow.appendChild(filterInput);
+
+    modal.appendChild(header);
+    modal.appendChild(filterRow);
+    overlay.appendChild(modal);
+
+    var closeOverlay = onClose || function() {
+      overlay.remove();
+      document.removeEventListener('keydown', escHandler);
+    };
+    overlay.addEventListener('click', closeOverlay);
+    closeBtn.addEventListener('click', closeOverlay);
+
+    var escHandler;
+    if (!onClose) {
+      escHandler = function(e) {
+        if (e.key === 'Escape') closeOverlay();
+      };
+      document.addEventListener('keydown', escHandler);
+    }
+
+    return {
+      overlay: overlay,
+      modal: modal,
+      filterInput: filterInput,
+      close: closeOverlay
+    };
+  }
+
+  // ---- Build modal DOM ----
+  function buildModal() {
+    var shell = buildModalShell('Discover Sheets', close);
+    shell.filterInput.placeholder = 'Filter by filename\u2026';
+    shell.filterInput.addEventListener('input', function() { applyFilter(this.value.trim()); });
 
     var grid = document.createElement('div');
     grid.id = 'ap-grid';
@@ -168,8 +198,8 @@
     var prevBtn = document.createElement('button');
     prevBtn.id = 'ap-prev';
     prevBtn.className = 'btn btn-outline';
-    prevBtn.textContent = '← Prev';
-    prevBtn.addEventListener('click', function () {
+    prevBtn.textContent = '\u2190 Prev';
+    prevBtn.addEventListener('click', function() {
       if (_page > 0) { _page--; _highlighted = -1; renderGrid(); }
     });
     var pageInfo = document.createElement('span');
@@ -177,8 +207,8 @@
     var nextBtn = document.createElement('button');
     nextBtn.id = 'ap-next';
     nextBtn.className = 'btn btn-outline';
-    nextBtn.textContent = 'Next →';
-    nextBtn.addEventListener('click', function () {
+    nextBtn.textContent = 'Next \u2192';
+    nextBtn.addEventListener('click', function() {
       var total = Math.max(1, Math.ceil(_filtered.length / PAGE_SIZE));
       if (_page < total - 1) { _page++; _highlighted = -1; renderGrid(); }
     });
@@ -186,16 +216,10 @@
     pagination.appendChild(pageInfo);
     pagination.appendChild(nextBtn);
 
-    modal.appendChild(header);
-    modal.appendChild(filterRow);
-    modal.appendChild(grid);
-    modal.appendChild(pagination);
-    overlay.appendChild(modal);
+    shell.modal.appendChild(grid);
+    shell.modal.appendChild(pagination);
 
-    // Click backdrop to close
-    overlay.addEventListener('click', close);
-
-    return overlay;
+    return shell.overlay;
   }
 
   // ---- Public API ----
@@ -234,50 +258,16 @@
     _callback = null;
     var folderCallback = callback;
 
-    var overlay = document.createElement('div');
-    overlay.id = 'asset-picker-overlay';
-
-    var modal = document.createElement('div');
-    modal.id = 'ap-modal';
-    modal.addEventListener('click', function(e) { e.stopPropagation(); });
-
-    var header = document.createElement('div');
-    header.id = 'ap-header';
-    var title = document.createElement('h2');
-    title.textContent = 'Load Folder as Tileset';
-    var closeBtn = document.createElement('button');
-    closeBtn.id = 'ap-close';
-    closeBtn.textContent = '\u2715';
-    closeBtn.addEventListener('click', function() {
-      overlay.remove();
-      document.removeEventListener('keydown', folderKeyHandler);
-    });
-    header.appendChild(title);
-    header.appendChild(closeBtn);
-
-    var filterRow = document.createElement('div');
-    filterRow.id = 'ap-filter-row';
-    var filterInput = document.createElement('input');
-    filterInput.id = 'ap-filter';
-    filterInput.type = 'text';
-    filterInput.placeholder = 'Filter folders\u2026';
-    filterInput.autocomplete = 'off';
-    filterRow.appendChild(filterInput);
+    var shell = buildModalShell('Load Folder as Tileset');
+    shell.filterInput.placeholder = 'Filter folders\u2026';
 
     var list = document.createElement('div');
     list.id = 'ap-folder-list';
     list.innerHTML = '<div id="ap-empty">Loading\u2026</div>';
+    shell.modal.appendChild(list);
 
-    modal.appendChild(header);
-    modal.appendChild(filterRow);
-    modal.appendChild(list);
-    overlay.appendChild(modal);
-    overlay.addEventListener('click', function() {
-      overlay.remove();
-      document.removeEventListener('keydown', folderKeyHandler);
-    });
-    document.body.appendChild(overlay);
-    filterInput.focus();
+    document.body.appendChild(shell.overlay);
+    shell.filterInput.focus();
 
     var allFolders = [];
 
@@ -297,25 +287,16 @@
         row.textContent = folderPath;
         row.title = folderPath;
         row.addEventListener('click', function() {
-          overlay.remove();
-          document.removeEventListener('keydown', folderKeyHandler);
+          shell.close();
           folderCallback(folderPath);
         });
         list.appendChild(row);
       });
     }
 
-    filterInput.addEventListener('input', function() {
+    shell.filterInput.addEventListener('input', function() {
       renderFolderList(this.value.trim());
     });
-
-    function folderKeyHandler(e) {
-      if (e.key === 'Escape') {
-        overlay.remove();
-        document.removeEventListener('keydown', folderKeyHandler);
-      }
-    }
-    document.addEventListener('keydown', folderKeyHandler);
 
     fetch('/api/assets/list')
       .then(function(r) { return r.json(); })
@@ -325,12 +306,11 @@
           var norm = p.replace(/\\/g, '/');
           var lastSlash = norm.lastIndexOf('/');
           if (lastSlash > 0) {
-            var dir = norm.substring(0, lastSlash);
-            folderSet[dir] = true;
+            folderSet[norm.substring(0, lastSlash)] = true;
           }
         });
         allFolders = Object.keys(folderSet).sort();
-        renderFolderList(filterInput.value.trim());
+        renderFolderList(shell.filterInput.value.trim());
       })
       .catch(function() {
         list.innerHTML = '<div id="ap-empty">Failed to load asset list</div>';

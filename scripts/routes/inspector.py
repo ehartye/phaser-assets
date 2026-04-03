@@ -58,14 +58,14 @@ class InspectorRoutes:
         sheets = session.inspector.get("sheets", [{}])
         first = sheets[0] if sheets else {}
         # Backward compat: inject both old single-sheet placeholders and new sheets array
-        html = html.replace("__TILE_CONFIG_PLACEHOLDER__", json.dumps({
+        html = html.replace("__TILE_CONFIG_PLACEHOLDER__", self.safe_json_for_html({
             "tile_width": first.get("tile_width", 32),
             "tile_height": first.get("tile_height", 32),
             "margin": first.get("margin", 0),
             "spacing": first.get("spacing", 0),
         }))
-        html = html.replace('"__IMAGE_PATH_PLACEHOLDER__"', json.dumps(first.get("image_path", "")))
-        html = html.replace("__SHEETS_PLACEHOLDER__", json.dumps(sheets))
+        html = html.replace('"__IMAGE_PATH_PLACEHOLDER__"', self.safe_json_for_html(first.get("image_path", "")))
+        html = html.replace("__SHEETS_PLACEHOLDER__", self.safe_json_for_html(sheets))
         self.send_html(html)
 
     def handle_inspector_image(self):

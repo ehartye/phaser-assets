@@ -634,7 +634,7 @@ function renderScene() {
           var info = getTileInfo(gid);
           if (!info) continue;
 
-          var pos = tileToScreen(c, r, lts, lth);
+          var pos = tileToScreen(c, r, lts, lth, lrows);
           var srcW = info.tw, srcH = info.th;
 
           // Scale sprite-collection tiles to tile width; scale sheet tiles to lts x lth
@@ -691,8 +691,8 @@ function renderGridOverlay() {
       // NW-SE lines: for each col (0..cols)
       for (var c = 0; c <= cols; c++) {
         gridCtx.beginPath();
-        var ax = tileToScreen(c, 0, tw, th);
-        var bx = tileToScreen(c, rows, tw, th);
+        var ax = tileToScreen(c, 0, tw, th, rows);
+        var bx = tileToScreen(c, rows, tw, th, rows);
         gridCtx.moveTo(ax.x * zoom + 0.5, ax.y * zoom + 0.5);
         gridCtx.lineTo(bx.x * zoom + 0.5, bx.y * zoom + 0.5);
         gridCtx.stroke();
@@ -701,8 +701,8 @@ function renderGridOverlay() {
       // NE-SW lines: for each row (0..rows)
       for (var r = 0; r <= rows; r++) {
         gridCtx.beginPath();
-        var ay = tileToScreen(0, r, tw, th);
-        var by = tileToScreen(cols, r, tw, th);
+        var ay = tileToScreen(0, r, tw, th, rows);
+        var by = tileToScreen(cols, r, tw, th, rows);
         gridCtx.moveTo(ay.x * zoom + 0.5, ay.y * zoom + 0.5);
         gridCtx.lineTo(by.x * zoom + 0.5, by.y * zoom + 0.5);
         gridCtx.stroke();
@@ -735,10 +735,11 @@ function renderGridOverlay() {
       // Draw the four corners of the diamond map as a rhombus outline
       var tw = tileSize.width;
       var th = tileSize.height;
-      var topCorner    = tileToScreen(0, 0, tw, th);
-      var rightCorner  = tileToScreen(grid.width, 0, tw, th);
-      var bottomCorner = tileToScreen(grid.width, grid.height, tw, th);
-      var leftCorner   = tileToScreen(0, grid.height, tw, th);
+      var rows = grid.height;
+      var topCorner    = tileToScreen(0, 0, tw, th, rows);
+      var rightCorner  = tileToScreen(grid.width, 0, tw, th, rows);
+      var bottomCorner = tileToScreen(grid.width, grid.height, tw, th, rows);
+      var leftCorner   = tileToScreen(0, grid.height, tw, th, rows);
       gridCtx.strokeStyle = 'rgba(80, 140, 255, 0.6)';
       gridCtx.lineWidth = 2;
       gridCtx.beginPath();
@@ -912,7 +913,8 @@ function getCanvasPos(e) {
   var y = (e.clientY - rect.top) / zoom;
   var tw = tileSize.width;
   var th = tileSize.height;
-  var pos = screenToTile(x, y, tw, th);
+  var rows = grid.height;
+  var pos = screenToTile(x, y, tw, th, rows);
   var col = pos.col;
   var row = pos.row;
   if (col < 0 || col >= grid.width || row < 0 || row >= grid.height) return null;
@@ -1336,10 +1338,10 @@ function _layerGridRows(layer) {
 }
 
 // ====== Isometric Coordinate Transforms ======
-// tileToScreen: returns top-left corner of tile bounding rect in canvas pixels (unzoomed)
-function tileToScreen(col, row, tileW, tileH) {
+// tileToScreen: returns the top vertex of the tile diamond in canvas pixels (unzoomed)
+function tileToScreen(col, row, tileW, tileH, originRows) {
   if (orientation === 'isometric') {
-    var originX = grid.height * (tileW / 2);
+    var originX = originRows * (tileW / 2);
     return {
       x: originX + (col - row) * (tileW / 2),
       y: (col + row) * (tileH / 2)
@@ -1349,9 +1351,9 @@ function tileToScreen(col, row, tileW, tileH) {
 }
 
 // screenToTile: converts canvas pixel position (unzoomed) to tile col/row
-function screenToTile(screenX, screenY, tileW, tileH) {
+function screenToTile(screenX, screenY, tileW, tileH, originRows) {
   if (orientation === 'isometric') {
-    var originX = grid.height * (tileW / 2);
+    var originX = originRows * (tileW / 2);
     var dx = screenX - originX;
     return {
       col: Math.floor((dx / (tileW / 2) + screenY / (tileH / 2)) / 2),

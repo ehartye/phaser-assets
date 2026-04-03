@@ -150,6 +150,11 @@ if ItchIoRoutes is not None:
 # HTTP handler
 # ---------------------------------------------------------------------------
 
+class RequestTooLarge(Exception):
+    """Raised by read_body() when Content-Length exceeds MAX_BODY_SIZE."""
+    pass
+
+
 class AssetHandler(BaseHTTPRequestHandler, *_base_mixins):
     """Route-dispatching HTTP handler for the asset preview server."""
 
@@ -171,7 +176,7 @@ class AssetHandler(BaseHTTPRequestHandler, *_base_mixins):
         length = int(self.headers.get("Content-Length", 0))
         if length > self.MAX_BODY_SIZE:
             self.send_json({"error": "request body too large"}, 413)
-            return {}
+            raise RequestTooLarge()
         raw = self.rfile.read(length)
         if not raw:
             return {}
@@ -275,7 +280,10 @@ class AssetHandler(BaseHTTPRequestHandler, *_base_mixins):
         path = self.path.split("?")[0]
         handler = self._post_routes.get(path)
         if handler:
-            getattr(self, handler)()
+            try:
+                getattr(self, handler)()
+            except RequestTooLarge:
+                return
         else:
             self.send_json({"error": "not found"}, 404)
 

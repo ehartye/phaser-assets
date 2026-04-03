@@ -1540,14 +1540,14 @@ function resizeScene() {
   renderScene();
 }
 
-// ====== Send to Claude ======
-function sendToClaude() {
-  var payload = {
-    grid: grid,
-    tile_size: tileSize,
+// ====== Scene State Snapshot ======
+function gatherSceneState() {
+  return {
+    grid: { width: grid.width, height: grid.height },
+    tile_size: { width: tileSize.width, height: tileSize.height },
     orientation: orientation,
-    tilesets: tilesetConfigs,
-    scene_pixels: scenePixels,
+    tilesets: tilesetConfigs.map(function(ts) { return Object.assign({}, ts); }),
+    scene_pixels: { width: scenePixels.width, height: scenePixels.height },
     layers: layers.map(function(l) {
       var out = { name: l.name, type: l.type };
       if (l.type === 'tilelayer') {
@@ -1559,13 +1559,18 @@ function sendToClaude() {
       if (l.type === 'objectgroup') out.objects = l.objects || [];
       return out;
     }),
-    zones: zones
+    zones: zones.slice()
   };
+}
+
+// ====== Send to Claude ======
+function sendToClaude() {
+  var state = gatherSceneState();
 
   fetch('/api/designer/submit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(state)
   }).then(function(resp) {
     if (resp.ok) {
       document.getElementById('status-banner').classList.add('visible');
@@ -1578,8 +1583,96 @@ function sendToClaude() {
 }
 
 // ====== Export Tiled JSON ======
+var VALID_ORIENTATIONS = ['orthogonal', 'isometric'];
+
 function exportTiled() {
-  window.open('/api/designer/export', '_blank');
+  var state = gatherSceneState();
+  var orient = VALID_ORIENTATIONS.indexOf(state.orientation) !== -1
+    ? state.orientation : 'orthogonal';
+
+  // Build Tiled tileset references with firstgid
+  var tiled_tilesets = [];
+  var gid = 1;
+  state.tilesets.forEach(function(ts) {
+    if (ts.type === 'sprite-collection') {
+      var sprites = ts.sprites || [];
+      var folder = (ts.folder_path || '').replace(/\\/g, '/');
+      var tile_entries = sprites.map(function(name, i) {
+        return { id: i, image: folder + '/' + name };
+      });
+      tiled_tilesets.push({
+        firstgid: gid, name: ts.name || 'tileset',
+        type: 'tileset', tiles: tile_entries
+      });
+      gid += sprites.length;
+    } else {
+      tiled_tilesets.push({
+        firstgid: gid, name: ts.name || 'tileset',
+        image: ts.image_path || '',
+        tilewidth: ts.tile_width || state.tile_size.width,
+        tileheight: ts.tile_height || state.tile_size.height,
+        margin: ts.margin || 0, spacing: ts.spacing || 0,
+        tilecount: ts.tile_count || 0, columns: ts.columns || 0
+      });
+      gid += ts.tile_count || 256;
+    }
+  });
+
+  // Build Tiled layers
+  var tiled_layers = [];
+  state.layers.forEach(function(layer) {
+    if (layer.type === 'objectgroup') {
+      tiled_layers.push({
+        name: layer.name || 'objects', type: 'objectgroup',
+        objects: layer.objects || [],
+        opacity: 1, visible: true, x: 0, y: 0
+      });
+    } else {
+      tiled_layers.push({
+        name: layer.name || 'layer', type: 'tilelayer',
+        data: layer.data || new Array(state.grid.width * state.grid.height).fill(0),
+        width: state.grid.width, height: state.grid.height,
+        opacity: 1, visible: true, x: 0, y: 0
+      });
+    }
+  });
+
+  // Add zones as object layer
+  if (state.zones.length > 0) {
+    tiled_layers.push({
+      name: 'Zones', type: 'objectgroup',
+      objects: state.zones.map(function(z) {
+        return {
+          name: z.name || 'zone', type: z.type || 'zone',
+          x: z.x || 0, y: z.y || 0,
+          width: z.width || state.tile_size.width,
+          height: z.height || state.tile_size.height,
+          visible: true
+        };
+      }),
+      opacity: 1, visible: true, x: 0, y: 0
+    });
+  }
+
+  var tiled_map = {
+    version: '1.10', tiledversion: '1.10.0',
+    orientation: orient, renderorder: 'right-down',
+    width: state.grid.width, height: state.grid.height,
+    tilewidth: state.tile_size.width, tileheight: state.tile_size.height,
+    infinite: false,
+    layers: tiled_layers, tilesets: tiled_tilesets,
+    type: 'map'
+  };
+
+  var blob = new Blob([JSON.stringify(tiled_map, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'scene.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ====== Keyboard Shortcuts ======

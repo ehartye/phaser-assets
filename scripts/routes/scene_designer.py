@@ -196,6 +196,8 @@ class SceneDesignerRoutes:
             })
 
         orient = results.get("orientation", "orthogonal")
+        if orient not in ("orthogonal", "isometric"):
+            orient = "orthogonal"
         tiled_map = {
             "version": "1.10",
             "tiledversion": "1.10.0",

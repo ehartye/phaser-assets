@@ -184,8 +184,6 @@ class AssetFinderRoutes:
     def handle_start(self):
         from server import session, get_db
         body = self.read_body()
-        if body is None:
-            return
         session.reset()
         session.session_id = secrets.token_hex(4)
         session.assets = body.get("assets", [])
@@ -232,8 +230,6 @@ class AssetFinderRoutes:
     def handle_download(self):
         from server import session, get_db
         body = self.read_body()
-        if body is None:
-            return
         selected_ids = set(body.get("selected", []))
         if not selected_ids:
             self.send_json({"error": "no assets selected"}, 400)

@@ -171,7 +171,7 @@ class AssetHandler(BaseHTTPRequestHandler, *_base_mixins):
         length = int(self.headers.get("Content-Length", 0))
         if length > self.MAX_BODY_SIZE:
             self.send_json({"error": "request body too large"}, 413)
-            return None
+            return {}
         raw = self.rfile.read(length)
         if not raw:
             return {}

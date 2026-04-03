@@ -23,8 +23,6 @@ class InspectorRoutes:
     def handle_inspector_load(self):
         from server import session
         body = self.read_body()
-        if body is None:
-            return
         if body.get("project_path"):
             session.project_path = body["project_path"]
         # Accept either a single sheet config or an array of sheets
@@ -87,8 +85,6 @@ class InspectorRoutes:
     def handle_inspector_submit(self):
         from server import session
         body = self.read_body()
-        if body is None:
-            return
         session.inspector["results"] = {
             "sheets": session.inspector.get("sheets", []),
             "animations": body.get("animations", {}),

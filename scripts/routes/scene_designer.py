@@ -25,8 +25,6 @@ class SceneDesignerRoutes:
     def handle_designer_load(self):
         from server import session
         body = self.read_body()
-        if body is None:
-            return
         if body.get("project_path"):
             session.project_path = body["project_path"]
         session.designer = {
@@ -82,8 +80,6 @@ class SceneDesignerRoutes:
     def handle_designer_submit(self):
         from server import session
         body = self.read_body()
-        if body is None:
-            return
         session.designer["results"] = {
             "grid": body.get("grid", session.designer.get("grid")),
             "tile_size": body.get("tile_size", session.designer.get("tile_size")),

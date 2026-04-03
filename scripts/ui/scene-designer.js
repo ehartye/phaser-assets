@@ -512,32 +512,24 @@ function getTileInfo(globalId, overrideTileSize) {
 
 // ====== Canvas Sizing ======
 function resizeCanvases() {
+  var strat = getOrientationStrategy();
   var maxPxW = 0, maxPxH = 0;
   for (var i = 0; i < layers.length; i++) {
     if (layers[i].type !== 'tilelayer') continue;
     var lts = _layerTileSize(layers[i]);
-    var lth = (orientation === 'isometric') ? Math.max(1, Math.floor(lts / 2)) : lts;
+    var lth = strat.tileHeight(lts);
     var cols = _layerGridCols(layers[i]);
     var rows = _layerGridRows(layers[i]);
-    var lpxW, lpxH;
-    if (orientation === 'isometric') {
-      lpxW = (cols + rows) * (lts / 2);
-      lpxH = (cols + rows) * (lth / 2);
-    } else {
-      lpxW = cols * lts;
-      lpxH = rows * lts;
-    }
+    var canvasSize = strat.canvasSize(cols, rows, lts, lth);
+    var lpxW = canvasSize.width;
+    var lpxH = canvasSize.height;
     if (lpxW > maxPxW) maxPxW = lpxW;
     if (lpxH > maxPxH) maxPxH = lpxH;
   }
   if (maxPxW === 0) {
-    if (orientation === 'isometric') {
-      maxPxW = (grid.width + grid.height) * (tileSize.width / 2);
-      maxPxH = (grid.width + grid.height) * (tileSize.height / 2);
-    } else {
-      maxPxW = grid.width * tileSize.width;
-      maxPxH = grid.height * tileSize.height;
-    }
+    var fallback = strat.canvasSize(grid.width, grid.height, tileSize.width, tileSize.height);
+    maxPxW = fallback.width;
+    maxPxH = fallback.height;
   }
 
   var w = Math.ceil(maxPxW * zoom);
@@ -573,63 +565,24 @@ function renderScene() {
   }
 
   // Render tile layers bottom-to-top (each at its own tile size)
+  var strat = getOrientationStrategy();
   for (var li = 0; li < layers.length; li++) {
     var layer = layers[li];
     if (!layer.visible || layer.type !== 'tilelayer') continue;
     if (!layer.data) continue;
 
     var lts = _layerTileSize(layer);
-    var lth = (orientation === 'isometric') ? Math.max(1, Math.floor(lts / 2)) : lts;
+    var lth = strat.tileHeight(lts);
     var lcols = _layerGridCols(layer);
     var lrows = _layerGridRows(layer);
 
-    if (orientation === 'isometric') {
-      // Diagonal-band (back-to-front) render order
-      for (var sum = 0; sum <= lcols + lrows - 2; sum++) {
-        for (var c = 0; c < lcols; c++) {
-          var r = sum - c;
-          if (r < 0 || r >= lrows) continue;
-          var gid = layer.data[r * lcols + c];
-          if (gid <= 0) continue;
-
-          var info = getTileInfo(gid);
-          if (!info) continue;
-
-          var pos = tileToScreen(c, r, lts, lth, lrows);
-          var srcW = info.tw, srcH = info.th;
-
-          // Scale sprite-collection tiles to tile width; scale sheet tiles to lts x lth
-          var destW, destH;
-          if (info.isCollection) {
-            var scale = lts / srcW;
-            destW = lts * zoom;
-            destH = srcH * scale * zoom;
-          } else {
-            destW = lts * zoom;
-            destH = lth * zoom;
-          }
-
-          var destX = pos.x * zoom;
-          // Anchor at bottom of diamond (tall sprites extend upward)
-          var destY = (pos.y + lth) * zoom - destH;
-
-          sceneCtx.drawImage(info.img, info.sx, info.sy, srcW, srcH, destX, destY, destW, destH);
-        }
-      }
-    } else {
-      // Orthographic: row-major order
-      var lcw = lts * zoom;
-      var lch = lts * zoom;
-      for (var idx = 0; idx < layer.data.length; idx++) {
-        var gid = layer.data[idx];
-        if (gid <= 0) continue;
-        var info = getTileInfo(gid, lts);
-        if (!info) continue;
-        var col = idx % lcols;
-        var row = Math.floor(idx / lcols);
-        sceneCtx.drawImage(info.img, info.sx, info.sy, info.tw, info.th, col * lcw, row * lch, lcw, lch);
-      }
-    }
+    strat.renderOrder(lcols, lrows, function(c, r) {
+      var gid = layer.data[r * lcols + c];
+      if (gid <= 0) return;
+      var info = getTileInfo(gid, orientation === 'isometric' ? undefined : lts);
+      if (!info) return;
+      strat.drawTileAt(sceneCtx, info, c, r, lts, lth, zoom, lrows);
+    });
   }
 
   renderGridOverlay();
@@ -639,84 +592,17 @@ function renderScene() {
 function renderGridOverlay() {
   gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
 
+  var strat = getOrientationStrategy();
   if (showGrid) {
     gridCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
     gridCtx.lineWidth = 1;
-
-    if (orientation === 'isometric') {
-      var tw = tileSize.width;
-      var th = tileSize.height;
-      var cols = grid.width;
-      var rows = grid.height;
-
-      // NW-SE lines: for each col (0..cols)
-      for (var c = 0; c <= cols; c++) {
-        gridCtx.beginPath();
-        var ax = tileToScreen(c, 0, tw, th, rows);
-        var bx = tileToScreen(c, rows, tw, th, rows);
-        gridCtx.moveTo(ax.x * zoom + 0.5, ax.y * zoom + 0.5);
-        gridCtx.lineTo(bx.x * zoom + 0.5, bx.y * zoom + 0.5);
-        gridCtx.stroke();
-      }
-
-      // NE-SW lines: for each row (0..rows)
-      for (var r = 0; r <= rows; r++) {
-        gridCtx.beginPath();
-        var ay = tileToScreen(0, r, tw, th, rows);
-        var by = tileToScreen(cols, r, tw, th, rows);
-        gridCtx.moveTo(ay.x * zoom + 0.5, ay.y * zoom + 0.5);
-        gridCtx.lineTo(by.x * zoom + 0.5, by.y * zoom + 0.5);
-        gridCtx.stroke();
-      }
-    } else {
-      var cw = tileSize.width * zoom;
-      var ch = tileSize.height * zoom;
-      var canvasW = gridCanvas.width;
-      var canvasH = gridCanvas.height;
-
-      for (var c = 0; c <= grid.width; c++) {
-        var x = c * cw + 0.5;
-        gridCtx.beginPath();
-        gridCtx.moveTo(x, 0);
-        gridCtx.lineTo(x, canvasH);
-        gridCtx.stroke();
-      }
-      for (var r = 0; r <= grid.height; r++) {
-        var y = r * ch + 0.5;
-        gridCtx.beginPath();
-        gridCtx.moveTo(0, y);
-        gridCtx.lineTo(canvasW, y);
-        gridCtx.stroke();
-      }
-    }
+    strat.drawGridLines(gridCtx, grid.width, grid.height, tileSize.width, tileSize.height, zoom);
   }
 
   if (showBounds) {
-    if (orientation === 'isometric') {
-      // Draw the four corners of the diamond map as a rhombus outline
-      var tw = tileSize.width;
-      var th = tileSize.height;
-      var rows = grid.height;
-      var topCorner    = tileToScreen(0, 0, tw, th, rows);
-      var rightCorner  = tileToScreen(grid.width, 0, tw, th, rows);
-      var bottomCorner = tileToScreen(grid.width, grid.height, tw, th, rows);
-      var leftCorner   = tileToScreen(0, grid.height, tw, th, rows);
-      gridCtx.strokeStyle = 'rgba(80, 140, 255, 0.6)';
-      gridCtx.lineWidth = 2;
-      gridCtx.beginPath();
-      gridCtx.moveTo(topCorner.x * zoom, topCorner.y * zoom);
-      gridCtx.lineTo(rightCorner.x * zoom + tw * zoom, rightCorner.y * zoom);
-      gridCtx.lineTo(bottomCorner.x * zoom + tw * zoom, (bottomCorner.y + th) * zoom);
-      gridCtx.lineTo(leftCorner.x * zoom, (leftCorner.y + th) * zoom);
-      gridCtx.closePath();
-      gridCtx.stroke();
-    } else {
-      var bw = scenePixels.width * zoom;
-      var bh = scenePixels.height * zoom;
-      gridCtx.strokeStyle = 'rgba(80, 140, 255, 0.6)';
-      gridCtx.lineWidth = 2;
-      gridCtx.strokeRect(-0.5, -0.5, bw + 1, bh + 1);
-    }
+    gridCtx.strokeStyle = 'rgba(80, 140, 255, 0.6)';
+    gridCtx.lineWidth = 2;
+    strat.drawBounds(gridCtx, grid.width, grid.height, tileSize.width, tileSize.height, zoom);
   }
 }
 
@@ -1261,7 +1147,7 @@ function syncToActiveLayer() {
     activeTileBySize[oldSize] = activeTile;
 
     tileSize.width = size;
-    tileSize.height = (orientation === 'isometric') ? Math.max(1, Math.floor(size / 2)) : size;
+    tileSize.height = getOrientationStrategy().tileHeight(size);
 
     recentTiles = recentTilesBySize[size] || {};
     activeTile = activeTileBySize[size] || 0;
@@ -1298,33 +1184,13 @@ function _layerGridRows(layer) {
   return Math.ceil(scenePixels.height / _layerTileSize(layer));
 }
 
-// ====== Isometric Coordinate Transforms ======
-// tileToScreen: returns the top vertex of the tile diamond in canvas pixels (unzoomed)
+// ====== Coordinate Transforms (delegated to orientation strategy) ======
 function tileToScreen(col, row, tileW, tileH, originRows) {
-  if (orientation === 'isometric') {
-    var originX = originRows * (tileW / 2);
-    return {
-      x: originX + (col - row) * (tileW / 2),
-      y: (col + row) * (tileH / 2)
-    };
-  }
-  return { x: col * tileW, y: row * tileH };
+  return getOrientationStrategy().tileToScreen(col, row, tileW, tileH, originRows);
 }
 
-// screenToTile: converts canvas pixel position (unzoomed) to tile col/row
 function screenToTile(screenX, screenY, tileW, tileH, originRows) {
-  if (orientation === 'isometric') {
-    var originX = originRows * (tileW / 2);
-    var dx = screenX - originX;
-    return {
-      col: Math.floor((dx / (tileW / 2) + screenY / (tileH / 2)) / 2),
-      row: Math.floor((screenY / (tileH / 2) - dx / (tileW / 2)) / 2)
-    };
-  }
-  return {
-    col: Math.floor(screenX / tileW),
-    row: Math.floor(screenY / tileH)
-  };
+  return getOrientationStrategy().screenToTile(screenX, screenY, tileW, tileH, originRows);
 }
 
 function _hasTileData(layerIdx) {
@@ -1423,12 +1289,7 @@ function orientationConfirmCancel() {
 
 function _applyOrientation(mode) {
   orientation = mode;
-  if (mode === 'isometric') {
-    // Force 2:1 aspect ratio: tileH = tileW / 2
-    tileSize.height = Math.max(1, Math.floor(tileSize.width / 2));
-  } else {
-    tileSize.height = tileSize.width;
-  }
+  tileSize.height = getOrientationStrategy().tileHeight(tileSize.width);
   _syncOrientationButtons();
   resizeCanvases();
   renderScene();
@@ -1451,7 +1312,7 @@ function _applyLayerTileSize(layerIdx, size) {
 
   // Update active tile size to match active layer
   tileSize.width = size;
-  tileSize.height = (orientation === 'isometric') ? Math.max(1, Math.floor(size / 2)) : size;
+  tileSize.height = getOrientationStrategy().tileHeight(size);
 
   recentTiles = recentTilesBySize[size] || {};
   activeTile = activeTileBySize[size] || 0;

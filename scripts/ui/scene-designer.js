@@ -1336,11 +1336,7 @@ function syncToActiveLayer() {
     activeTileBySize[oldSize] = activeTile;
 
     tileSize.width = size;
-    tileSize.height = size;
-    for (var i = 0; i < tilesetConfigs.length; i++) {
-      tilesetConfigs[i].tile_width = size;
-      tilesetConfigs[i].tile_height = size;
-    }
+    tileSize.height = (orientation === 'isometric') ? Math.max(1, Math.floor(size / 2)) : size;
 
     recentTiles = recentTilesBySize[size] || {};
     activeTile = activeTileBySize[size] || 0;
@@ -1531,10 +1527,6 @@ function _applyLayerTileSize(layerIdx, size) {
   // Update active tile size to match active layer
   tileSize.width = size;
   tileSize.height = (orientation === 'isometric') ? Math.max(1, Math.floor(size / 2)) : size;
-  for (var i = 0; i < tilesetConfigs.length; i++) {
-    tilesetConfigs[i].tile_width = tileSize.width;
-    tilesetConfigs[i].tile_height = tileSize.height;
-  }
 
   recentTiles = recentTilesBySize[size] || {};
   activeTile = activeTileBySize[size] || 0;

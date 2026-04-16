@@ -63,6 +63,77 @@ def _safe_extractall(zf, dest_dir):
     zf.extractall(dest_dir)
 
 
+# Magic-byte signatures for file formats we accept.
+# Each entry: (signature_bytes, offset, format_name)
+_MAGIC_SIGNATURES = [
+    (b"PK\x03\x04", 0, "zip"),
+    (b"PK\x05\x06", 0, "zip"),  # empty zip
+    (b"PK\x07\x08", 0, "zip"),  # spanned zip
+    (b"\x89PNG\r\n\x1a\n", 0, "png"),
+    (b"\xff\xd8\xff", 0, "jpeg"),
+    (b"GIF87a", 0, "gif"),
+    (b"GIF89a", 0, "gif"),
+    (b"RIFF", 0, "riff"),  # WebP/WAV — check further below
+    (b"BM", 0, "bmp"),
+    (b"<svg", 0, "svg"),
+    (b"<?xml", 0, "xml"),  # likely SVG
+    (b"OggS", 0, "ogg"),
+    (b"ID3", 0, "mp3"),
+    (b"\xff\xfb", 0, "mp3"),
+    (b"\xff\xf3", 0, "mp3"),
+    (b"\xff\xf2", 0, "mp3"),
+    (b"fLaC", 0, "flac"),
+    (b"{\"", 0, "json"),
+    (b"{\n", 0, "json"),
+]
+
+# Content-Types that indicate an error page or unexpected payload (not a real asset).
+_REJECTED_CONTENT_TYPES = {
+    "text/html", "application/xhtml+xml", "text/plain",
+}
+
+
+def _detect_format(data):
+    """Return format name from magic bytes, or None if unrecognized."""
+    for sig, offset, name in _MAGIC_SIGNATURES:
+        if data[offset:offset + len(sig)] == sig:
+            # RIFF container: disambiguate WebP vs WAV
+            if name == "riff" and len(data) >= 12:
+                sub = data[8:12]
+                if sub == b"WEBP":
+                    return "webp"
+                if sub == b"WAVE":
+                    return "wav"
+                return None
+            return name
+    return None
+
+
+def _validate_download(url, data, content_type):
+    """
+    Validate that downloaded bytes are actually an asset (image/archive/audio),
+    not an HTML error page or landing page.
+    Returns (ok, detected_format, error_message).
+    """
+    if not data:
+        return False, None, "empty response"
+
+    ct_main = (content_type or "").split(";")[0].strip().lower()
+    if ct_main in _REJECTED_CONTENT_TYPES:
+        return False, None, f"server returned {ct_main or 'unknown type'} (likely error page or landing page), not a downloadable asset"
+
+    fmt = _detect_format(data[:16])
+    if fmt is None:
+        # Allow json and svg where content-type clearly agrees
+        if ct_main in ("application/json",) and data[:1] in (b"{", b"["):
+            return True, "json", None
+        # Fall through: magic bytes don't match any known asset format
+        preview = data[:32]
+        return False, None, f"content did not match any known image/archive/audio format (first bytes: {preview!r})"
+
+    return True, fmt, None
+
+
 def _dest_dir_for_asset(asset, session):
     """Determine the destination directory for an asset based on its type."""
     asset_type = asset.get("type", "").lower()
@@ -111,24 +182,34 @@ def _download_one(asset, session):
         with urllib.request.urlopen(req, timeout=60) as resp:
             data = resp.read()
             content_type = resp.headers.get("Content-Type", "")
+
+            # Validate: reject HTML error pages, unknown formats
+            ok, detected_fmt, err = _validate_download(url, data, content_type)
+            if not ok:
+                return False, None, err
+
             url_path = url.split("?")[0].split("#")[0]
             filename = os.path.basename(url_path) or f"{asset.get('id', 'asset')}"
+            # Fill in extension from detected format if missing
             if not os.path.splitext(filename)[1]:
-                ext_map = {
-                    "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif",
-                    "image/svg+xml": ".svg", "audio/mpeg": ".mp3", "audio/ogg": ".ogg",
-                    "audio/wav": ".wav", "application/json": ".json", "application/zip": ".zip",
+                fmt_ext = {
+                    "zip": ".zip", "png": ".png", "jpeg": ".jpg", "gif": ".gif",
+                    "webp": ".webp", "bmp": ".bmp", "svg": ".svg", "xml": ".svg",
+                    "ogg": ".ogg", "mp3": ".mp3", "wav": ".wav", "flac": ".flac",
+                    "json": ".json",
                 }
-                ext = ext_map.get(content_type.split(";")[0].strip(), "")
-                filename += ext
-            if filename.endswith(".zip") or "zip" in content_type:
+                filename += fmt_ext.get(detected_fmt, "")
+
+            # If detected as zip, extract it (trust magic bytes over filename/header)
+            if detected_fmt == "zip":
                 buf = io.BytesIO(data)
                 try:
                     with zipfile.ZipFile(buf) as zf:
                         _safe_extractall(zf, dest_dir)
                     return True, dest_dir, None
-                except zipfile.BadZipFile:
-                    pass
+                except zipfile.BadZipFile as exc:
+                    return False, None, f"corrupt zip archive: {exc}"
+
             local_path = os.path.join(dest_dir, filename)
             with open(local_path, "wb") as f:
                 f.write(data)

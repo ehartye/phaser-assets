@@ -7,7 +7,7 @@ var OrientationStrategies = {
   orthogonal: {
     name: 'orthogonal',
 
-    tileHeight: function(tileWidth) {
+    defaultTileHeight: function(tileWidth) {
       return tileWidth;
     },
 
@@ -68,31 +68,37 @@ var OrientationStrategies = {
   isometric: {
     name: 'isometric',
 
-    tileHeight: function(tileWidth) {
+    defaultTileHeight: function(tileWidth) {
       return Math.max(1, Math.floor(tileWidth / 2));
     },
 
     canvasSize: function(cols, rows, tileW, tileH) {
+      // Add vertical padding for tile overhang (3D block sprites extend above
+      // the top diamond row). tileH is the padding — enough for a tile whose
+      // depth equals its diamond height.
       return {
         width: (cols + rows) * (tileW / 2),
-        height: (cols + rows) * (tileH / 2)
+        height: (cols + rows) * (tileH / 2) + tileH
       };
     },
 
     tileToScreen: function(col, row, tileW, tileH, originRows) {
       var originX = (originRows || 0) * (tileW / 2);
+      // Shift down by tileH to match the canvas padding from canvasSize
       return {
         x: originX + (col - row) * (tileW / 2),
-        y: (col + row) * (tileH / 2)
+        y: (col + row) * (tileH / 2) + tileH
       };
     },
 
     screenToTile: function(screenX, screenY, tileW, tileH, originRows) {
       var originX = (originRows || 0) * (tileW / 2);
       var dx = screenX - originX;
+      // Subtract tileH padding added by tileToScreen/canvasSize
+      var sy = screenY - tileH;
       return {
-        col: Math.floor((dx / (tileW / 2) + screenY / (tileH / 2)) / 2),
-        row: Math.floor((screenY / (tileH / 2) - dx / (tileW / 2)) / 2)
+        col: Math.floor((dx / (tileW / 2) + sy / (tileH / 2)) / 2),
+        row: Math.floor((sy / (tileH / 2) - dx / (tileW / 2)) / 2)
       };
     },
 
@@ -144,9 +150,15 @@ var OrientationStrategies = {
     drawTileAt: function(ctx, info, col, row, tileW, tileH, zoom, originRows) {
       var pos = this.tileToScreen(col, row, tileW, tileH, originRows);
       var srcW = info.tw, srcH = info.th;
+
+      // Scale width to diamond tile width; preserve aspect ratio for height
+      // so 3D block tiles (with depth/sides) extend upward naturally
       var destW = tileW * zoom;
       var destH = (srcH / srcW) * tileW * zoom;
+
+      // pos is the top vertex of the diamond
       var destX = (pos.x - tileW / 2) * zoom;
+      // Bottom of sprite anchors to bottom of diamond; depth extends upward
       var destY = (pos.y + tileH) * zoom - destH;
       ctx.drawImage(info.img, info.sx, info.sy, srcW, srcH, destX, destY, destW, destH);
     }

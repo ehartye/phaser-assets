@@ -720,3 +720,25 @@ body {
   margin-top: 6px;
   display: none;
 }
+
+.iso-tile-size {
+  margin-top: 8px;
+}
+
+.iso-tile-size .resize-row {
+  gap: 6px;
+}
+
+.iso-tile-size input {
+  width: 50px;
+}
+
+#detect-ratio-btn {
+  margin-top: 6px;
+}
+
+#detect-ratio-btn.detecting {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}

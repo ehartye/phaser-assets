@@ -86,7 +86,7 @@
           <button id="orient-ortho" class="orient-btn active" onclick="setOrientation('orthogonal')">Orthographic</button>
           <button id="orient-iso" class="orient-btn" onclick="setOrientation('isometric')">Isometric</button>
         </div>
-        <div id="iso-hint" class="iso-hint">Recommended tile size: 64×32 (2:1 ratio)</div>
+        <div id="iso-hint" class="iso-hint">Set tile W×H to match your tileset's diamond (e.g. 64×32)</div>
       </div>
 
       <!-- Tile Size -->
@@ -99,6 +99,16 @@
           <button class="tile-size-btn" onclick="setTileSize(32)">32</button>
           <button class="tile-size-btn" onclick="setTileSize(48)">48</button>
           <button class="tile-size-btn" onclick="setTileSize(64)">64</button>
+        </div>
+        <div id="iso-tile-size" class="iso-tile-size" style="display:none">
+          <div class="resize-row">
+            <label>W</label>
+            <input type="number" id="iso-tile-w" min="8" max="256" step="1" value="64">
+            <label>H</label>
+            <input type="number" id="iso-tile-h" min="4" max="256" step="1" value="32">
+            <button class="btn btn-sm btn-outline" onclick="applyIsoTileSize()">Apply</button>
+          </div>
+          <button class="btn btn-sm btn-outline" id="detect-ratio-btn" onclick="startDetectRatio()">Detect from tile</button>
         </div>
       </div>
 

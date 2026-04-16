@@ -35,14 +35,18 @@ sceneCtx.imageSmoothingEnabled = false;
 
 // ====== Init ======
 function updateGridTileInfo() {
+  var sizeStr = (orientation === 'isometric')
+    ? tileSize.width + '\u00d7' + tileSize.height + 'px'
+    : tileSize.width + 'px';
   document.getElementById('grid-tile-info').textContent =
-    grid.width + ' \u00d7 ' + grid.height + ' tiles at ' + tileSize.width + 'px';
+    grid.width + ' \u00d7 ' + grid.height + ' tiles at ' + sizeStr;
 }
 
 function init() {
-  // Compute pixel dimensions from initial grid
+  // Compute pixel dimensions from initial grid (always use base tile width,
+  // not tileSize.height which may be halved in isometric mode)
   scenePixels.width = grid.width * tileSize.width;
-  scenePixels.height = grid.height * tileSize.height;
+  scenePixels.height = grid.height * tileSize.width;
   document.getElementById('scene-width-px').value = scenePixels.width;
   document.getElementById('scene-height-px').value = scenePixels.height;
   updateGridTileInfo();
@@ -419,6 +423,23 @@ function getFirstGid(tsIdx) {
 }
 
 function selectTile(globalId, tsIdx) {
+  // Intercept for ratio detection mode
+  if (_detectingRatio) {
+    _detectingRatio = false;
+    var info = getTileInfo(globalId);
+    if (info && info.img) {
+      var result = _detectFromImage(info.img);
+      if (result) {
+        var w = tileSize.width;
+        var h = Math.round(w * result.ratio);
+        document.getElementById('iso-tile-w').value = w;
+        document.getElementById('iso-tile-h').value = h;
+      }
+    }
+    _cancelDetectRatio();
+    return;
+  }
+
   activeTile = globalId;
   if (tsIdx !== undefined && tsIdx !== activeTilesetIndex) {
     activeTilesetIndex = tsIdx;
@@ -469,15 +490,25 @@ function renderRecentTiles() {
     if (!info) continue;
 
     var canvas = document.createElement('canvas');
-    canvas.width = info.tw * palZoom;
-    canvas.height = info.th * palZoom;
+    var rThumbMax = 48;
+    var rDispW, rDispH;
+    if (info.isCollection) {
+      var rScale = Math.min(rThumbMax / info.tw, rThumbMax / info.th);
+      rDispW = Math.round(info.tw * rScale * palZoom);
+      rDispH = Math.round(info.th * rScale * palZoom);
+    } else {
+      rDispW = info.tw * palZoom;
+      rDispH = info.th * palZoom;
+    }
+    canvas.width = rDispW;
+    canvas.height = rDispH;
     canvas.className = 'recent-tile' + (gid === activeTile ? ' selected' : '');
     canvas.dataset.globalId = gid;
     canvas.title = info.tsName + ' #' + info.localIdx + ' (used ' + entries[i].count + 'x)';
 
     var ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(info.img, info.sx, info.sy, info.tw, info.th, 0, 0, info.tw * palZoom, info.th * palZoom);
+    ctx.drawImage(info.img, info.sx, info.sy, info.tw, info.th, 0, 0, rDispW, rDispH);
 
     canvas.addEventListener('click', function() {
       selectTile(parseInt(this.dataset.globalId));
@@ -517,7 +548,7 @@ function resizeCanvases() {
   for (var i = 0; i < layers.length; i++) {
     if (layers[i].type !== 'tilelayer') continue;
     var lts = _layerTileSize(layers[i]);
-    var lth = strat.tileHeight(lts);
+    var lth = tileSize.height;
     var cols = _layerGridCols(layers[i]);
     var rows = _layerGridRows(layers[i]);
     var canvasSize = strat.canvasSize(cols, rows, lts, lth);
@@ -572,7 +603,7 @@ function renderScene() {
     if (!layer.data) continue;
 
     var lts = _layerTileSize(layer);
-    var lth = strat.tileHeight(lts);
+    var lth = tileSize.height;
     var lcols = _layerGridCols(layer);
     var lrows = _layerGridRows(layer);
 
@@ -777,7 +808,8 @@ function applyBrushAs(row, col, tool) {
   var layer = layers[activeLayerIndex];
   if (!layer || layer.type !== 'tilelayer') return;
 
-  var idx = row * grid.width + col;
+  var cols = _layerGridCols(layer);
+  var idx = row * cols + col;
   var newVal = tool === 'erase' ? 0 : activeTile;
 
   if (layer.data[idx] === newVal) return;
@@ -1016,6 +1048,14 @@ function renderLayers() {
 }
 
 function addLayer(type) {
+  // Sync scene size from inputs so new layers match current dimensions
+  var inputW = parseInt(document.getElementById('scene-width-px').value);
+  var inputH = parseInt(document.getElementById('scene-height-px').value);
+  if (!isNaN(inputW) && !isNaN(inputH) && inputW >= 8 && inputH >= 8 &&
+      (inputW !== scenePixels.width || inputH !== scenePixels.height)) {
+    resizeScene();
+  }
+
   var name = type === 'tilelayer'
     ? 'Layer ' + (layers.length + 1)
     : 'Objects ' + (layers.length + 1);
@@ -1147,7 +1187,7 @@ function syncToActiveLayer() {
     activeTileBySize[oldSize] = activeTile;
 
     tileSize.width = size;
-    tileSize.height = getOrientationStrategy().tileHeight(size);
+    tileSize.height = getOrientationStrategy().defaultTileHeight(size);
 
     recentTiles = recentTilesBySize[size] || {};
     activeTile = activeTileBySize[size] || 0;
@@ -1245,11 +1285,131 @@ function setTileSize(size) {
 }
 
 var _pendingTileSize = 0;
+var _detectingRatio = false;
+
+function startDetectRatio() {
+  _detectingRatio = true;
+  var btn = document.getElementById('detect-ratio-btn');
+  btn.textContent = 'Click a tile\u2026';
+  btn.classList.add('detecting');
+  document.getElementById('palette-grid').style.cursor = 'crosshair';
+}
+
+function _cancelDetectRatio() {
+  _detectingRatio = false;
+  var btn = document.getElementById('detect-ratio-btn');
+  if (btn) {
+    btn.textContent = 'Detect from tile';
+    btn.classList.remove('detecting');
+  }
+  document.getElementById('palette-grid').style.cursor = '';
+}
+
+function _detectFromImage(img) {
+  var c = document.createElement('canvas');
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  var ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  var data = ctx.getImageData(0, 0, c.width, c.height).data;
+
+  // Find the widest opaque row (diamond equator)
+  var maxCount = 0;
+  var equatorY = 0;
+  for (var y = 0; y < c.height; y++) {
+    var count = 0;
+    for (var x = 0; x < c.width; x++) {
+      if (data[(y * c.width + x) * 4 + 3] > 10) count++;
+    }
+    if (count > maxCount) {
+      maxCount = count;
+      equatorY = y;
+    }
+  }
+
+  // Trace the actual diamond edge slope to get the ratio
+  // Measure width at several rows and compute average slope
+  var topY = -1;
+  for (var y = 0; y < equatorY; y++) {
+    for (var x = 0; x < c.width; x++) {
+      if (data[(y * c.width + x) * 4 + 3] > 10) {
+        topY = y;
+        break;
+      }
+    }
+    if (topY >= 0) break;
+  }
+
+  if (topY < 0 || equatorY <= topY) return null;
+
+  // Sample rows between top and equator; measure half-width growth per pixel
+  var samples = [];
+  var step = Math.max(1, Math.floor((equatorY - topY) / 10));
+  for (var y = topY + step; y < equatorY; y += step) {
+    var left = -1, right = -1;
+    for (var x = 0; x < c.width; x++) {
+      if (data[(y * c.width + x) * 4 + 3] > 10) { left = x; break; }
+    }
+    for (var x = c.width - 1; x >= 0; x--) {
+      if (data[(y * c.width + x) * 4 + 3] > 10) { right = x; break; }
+    }
+    if (left >= 0 && right > left) {
+      var halfW = (right - left + 1) / 2;
+      var dy = y - topY;
+      if (dy > 0) samples.push(halfW / dy);
+    }
+  }
+
+  if (samples.length === 0) return null;
+
+  // Median slope = pixels of half-width per pixel of height
+  samples.sort(function(a, b) { return a - b; });
+  var medianSlope = samples[Math.floor(samples.length / 2)];
+
+  // slope = (tileW/2) / (tileH/2) = tileW/tileH
+  // So tileH/tileW = 1/slope
+  var ratio = 1 / medianSlope;
+
+  return { ratio: ratio, imgWidth: c.width, imgHeight: c.height };
+}
+
+function applyIsoTileSize() {
+  var w = parseInt(document.getElementById('iso-tile-w').value);
+  var h = parseInt(document.getElementById('iso-tile-h').value);
+  if (isNaN(w) || isNaN(h) || w < 8 || h < 4) return;
+
+  var layer = layers[activeLayerIndex];
+  var sizeChanged = w !== tileSize.width;
+
+  if (sizeChanged && _hasTileData(activeLayerIndex)) {
+    _pendingTileSize = w;
+    _pendingTileHeight = h;
+    document.getElementById('tile-size-confirm').classList.add('visible');
+    return;
+  }
+
+  tileSize.width = w;
+  tileSize.height = h;
+  if (layer && layer.type === 'tilelayer' && sizeChanged) {
+    _applyLayerTileSizeKeepHeight(activeLayerIndex, w);
+  } else {
+    resizeCanvases();
+    renderScene();
+  }
+}
+
+var _pendingTileHeight = 0;
 
 function tileSizeConfirmClear() {
   document.getElementById('tile-size-confirm').classList.remove('visible');
   _clearLayerData(activeLayerIndex);
-  _applyLayerTileSize(activeLayerIndex, _pendingTileSize);
+  if (_pendingTileHeight > 0) {
+    tileSize.height = _pendingTileHeight;
+    _pendingTileHeight = 0;
+    _applyLayerTileSizeKeepHeight(activeLayerIndex, _pendingTileSize);
+  } else {
+    _applyLayerTileSize(activeLayerIndex, _pendingTileSize);
+  }
 }
 
 function tileSizeConfirmCancel() {
@@ -1289,17 +1449,26 @@ function orientationConfirmCancel() {
 
 function _applyOrientation(mode) {
   orientation = mode;
-  tileSize.height = getOrientationStrategy().tileHeight(tileSize.width);
+  tileSize.height = getOrientationStrategy().defaultTileHeight(tileSize.width);
   _syncOrientationButtons();
   resizeCanvases();
   renderScene();
 }
 
 function _syncOrientationButtons() {
-  document.getElementById('orient-ortho').classList.toggle('active', orientation === 'orthogonal');
-  document.getElementById('orient-iso').classList.toggle('active', orientation === 'isometric');
+  var iso = orientation === 'isometric';
+  document.getElementById('orient-ortho').classList.toggle('active', !iso);
+  document.getElementById('orient-iso').classList.toggle('active', iso);
   var hint = document.getElementById('iso-hint');
-  if (hint) hint.style.display = (orientation === 'isometric') ? 'block' : 'none';
+  if (hint) hint.style.display = iso ? 'block' : 'none';
+  var isoSize = document.getElementById('iso-tile-size');
+  if (isoSize) isoSize.style.display = iso ? 'block' : 'none';
+  if (iso) {
+    var wInput = document.getElementById('iso-tile-w');
+    var hInput = document.getElementById('iso-tile-h');
+    if (wInput) wInput.value = tileSize.width;
+    if (hInput) hInput.value = tileSize.height;
+  }
 }
 
 function _applyLayerTileSize(layerIdx, size) {
@@ -1312,7 +1481,7 @@ function _applyLayerTileSize(layerIdx, size) {
 
   // Update active tile size to match active layer
   tileSize.width = size;
-  tileSize.height = getOrientationStrategy().tileHeight(size);
+  tileSize.height = getOrientationStrategy().defaultTileHeight(size);
 
   recentTiles = recentTilesBySize[size] || {};
   activeTile = activeTileBySize[size] || 0;
@@ -1328,6 +1497,34 @@ function _applyLayerTileSize(layerIdx, size) {
     btn.classList.toggle('active', parseInt(btn.textContent) === size);
   });
   updateGridTileInfo();
+  loadTilesets();
+  renderRecentTiles();
+  resizeCanvases();
+  renderScene();
+}
+
+function _applyLayerTileSizeKeepHeight(layerIdx, size) {
+  var layer = layers[layerIdx];
+  var oldSize = _layerTileSize(layer);
+  recentTilesBySize[oldSize] = recentTiles;
+  activeTileBySize[oldSize] = activeTile;
+
+  layer.tileSize = size;
+  tileSize.width = size;
+  // tileSize.height is NOT changed -- caller set it
+
+  recentTiles = recentTilesBySize[size] || {};
+  activeTile = activeTileBySize[size] || 0;
+
+  _resizeLayerData(layer);
+  grid.width = _layerGridCols(layer);
+  grid.height = _layerGridRows(layer);
+
+  document.querySelectorAll('.tile-size-btn').forEach(function(btn) {
+    btn.classList.toggle('active', parseInt(btn.textContent) === size);
+  });
+  updateGridTileInfo();
+  _syncOrientationButtons();
   loadTilesets();
   renderRecentTiles();
   resizeCanvases();

@@ -5,6 +5,11 @@
 asset-preview-*.html
 asset-selections-*.json
 
+# Root-level scratch/test artifacts
+/image.png
+/assets-payload.json
+/inspector-test.json
+
 # Downloaded game assets (project-specific, re-fetchable)
 /assets/
 

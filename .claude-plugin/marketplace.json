@@ -8,7 +8,7 @@
     {
       "name": "phaser-assets",
       "description": "Find and integrate free 2D game assets into Phaser JS projects. Searches trusted free sources (Kenney, OpenGameArt, itch.io), presents a visual preview UI for selection, downloads assets into your project, and generates ready-to-use Phaser loading code.",
-      "version": "0.4.0",
+      "version": "0.6.0",
       "source": "./",
       "license": "MIT"
     }
